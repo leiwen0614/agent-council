@@ -1,38 +1,80 @@
 # Agent Council
 
-Agent Council is a planned cross-platform CLI that coordinates Codex CLI, Claude Code, and
-GitHub Copilot CLI as three equal research agents. One user prompt fans out to all three
-providers, each agent anonymously reviews the other two answers, and all three then produce
-independent final reports for the user to judge.
+Agent Council is a cross-platform CLI that coordinates Codex CLI, Claude Code, and GitHub
+Copilot CLI as peer research agents. One user prompt fans out to every enabled provider, each
+agent anonymously reviews its peers, and every enabled agent produces an independent final
+report for the user to judge. Two or three providers may participate; all three are enabled by
+default. A run never starts with fewer than two ready providers.
 
 Agent Council is an orchestrator, not a fourth agent. It does not synthesize an authoritative
 answer, rank providers, or choose a winner.
 
 > [!IMPORTANT]
-> This repository is an early implementation scaffold. It currently contains the core types,
-> runtime schemas, configuration loading, and file-based session storage. Provider adapters,
-> orchestration, terminal UI, tests, and the declared CLI entrypoint are not implemented yet.
+> This project is an early MVP. Provider CLI output formats and resume behavior can change between
+> provider releases, so run `council doctor` after upgrading a provider CLI.
 
 ## Intended workflow
 
 Each Council run will:
 
-1. send the same prompt to Codex, Claude, and Copilot concurrently;
-2. stream and persist three independent initial answers;
-3. run three concurrent, anonymous cross-reviews, with each provider reviewing only its peers;
-4. give every provider the complete evidence set and collect three revised final reports; and
+1. send the same prompt to all enabled providers concurrently;
+2. stream and persist their independent initial answers;
+3. run concurrent, anonymous cross-reviews, with each provider reviewing only its peers;
+4. give every enabled provider the complete evidence set and collect revised final reports; and
 5. let the user select one report or record a mixed decision.
 
 See [the product design](docs/product-design.md) and
 [implementation clarifications](docs/implementation-clarifications.md) for the complete product
 contract.
 
-## Development
-
-Prerequisites:
+## Requirements
 
 - Node.js 22 or newer
-- npm
+- Codex CLI, authenticated with `codex login`
+- Claude Code, authenticated with `claude auth login` (optional when disabled)
+- GitHub Copilot CLI, authenticated with `copilot login` or one of its supported environment
+  variables (`COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`)
+
+Provider authentication remains owned by each official CLI.
+
+## Install and run
+
+```shell
+npm ci
+npm run build
+npm link
+council doctor
+council
+```
+
+The primary `council` command opens an interactive session picker. Other useful commands are:
+
+```shell
+council run --name "my research" --prompt "Compare these approaches"
+council resume "my research"
+council sessions
+council decide "my research"
+council export "my research" codex
+```
+
+Prompts can also be read from `--prompt-file` or standard input. Permission bypass is explicit per
+provider, for example `--yolo codex --yolo claude`; safe mode is the default. There is no default
+Council or per-provider timeout.
+
+Provider enablement is configured in `council.config.yaml` or overridden for one run with
+`--providers codex,copilot`. At least two providers are required:
+
+```yaml
+enabledProviders:
+  - codex
+  - copilot
+```
+
+At preflight, Council uses every configured provider that is installed and authenticated. If one
+of three is unavailable, the run proceeds with the other two and records that effective provider
+set in `run.json`. If fewer than two are ready, the run is refused.
+
+## Development
 
 Install dependencies from the committed lockfile:
 
@@ -50,12 +92,11 @@ npm test
 npm run build
 ```
 
-The `dev` and `start` scripts are reserved for the future CLI entrypoint and are not usable in
-the current scaffold.
+During development, use `npm run dev -- --help`. After `npm run build`, use `npm start -- --help`.
 
 ## Local data and authentication
 
-Council runtime data will live under the project-local `.council/` directory, which is ignored by
+Council runtime data lives under the project-local `.council/` directory, which is ignored by
 Git. Provider authentication remains owned by the official provider CLIs; this project must not
 store provider credentials or tokens. Local `.env*` files are also ignored, except for an
 optional `.env.example`.

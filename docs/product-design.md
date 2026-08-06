@@ -4,11 +4,11 @@
 
 Agent Council is a cross-platform terminal application for comparing independent research from Codex CLI, Claude Code, and GitHub Copilot CLI.
 
-The product accepts a user prompt once and coordinates three equal providers through three reasoning stages:
+The product accepts a user prompt once and coordinates two or three equal providers through three reasoning stages:
 
-1. three independent initial answers;
-2. three anonymous cross-reviews; and
-3. three revised final reports.
+1. independent initial answers from every effective provider;
+2. anonymous cross-reviews from every effective provider; and
+3. revised final reports from every effective provider.
 
 Agent Council itself performs deterministic coordination only. It does not act as a fourth model, synthesize an authoritative answer, rank the providers, or select a winner. The user chooses one final report or records a mixed decision.
 
@@ -16,7 +16,7 @@ This document describes the intended product behavior and user experience. The n
 
 ## Terminal Experience
 
-The default interface is one terminal containing three independently updating provider panels. The same layout is reused for the Initial Answer, Cross-Review, and Final Report stages.
+The default interface is one terminal containing one independently updating panel per effective provider. The same layout is reused for the Initial Answer, Cross-Review, and Final Report stages.
 
 ```text
 Stage 1 of 3: Initial Answer                                      00:12:48
@@ -34,12 +34,12 @@ Output is streaming live and being saved. Press Ctrl+C to cancel gracefully.
 
 The drawing communicates the product experience, not fixed terminal dimensions. Implementations must preserve these behaviors:
 
-- All three providers start concurrently at each reasoning stage.
+- All effective providers start concurrently at each reasoning stage.
 - Each provider has a distinct panel with its identity, status, and current output.
 - A provider that completes early remains visible while the other providers continue.
 - One provider failing must not stop or erase the work of the others.
-- Initial Answer, Cross-Review, and Final Report use the same three-provider presentation model.
-- On narrow terminals, panels may stack vertically or become selectable tabs, but execution remains three-way and concurrent.
+- Initial Answer, Cross-Review, and Final Report use the same peer-provider presentation model.
+- On narrow terminals, panels may stack vertically or become selectable tabs, but execution remains concurrent.
 - The UI renders normalized events; it must not own orchestration or persistence logic.
 - Output shown in the terminal is saved at the same time. There is no display-only execution mode in the normal workflow.
 
@@ -86,31 +86,31 @@ flowchart TD
     U -. "Explicit request only" .-> FM["Optional final.md"]
 ```
 
-Authentication belongs to each provider. Users normally authenticate with all three official CLIs before starting a Council run. `council doctor` verifies installation and authentication before fan-out and reports provider-specific remediation without handling credentials itself.
+Authentication belongs to each provider. Users normally authenticate with every configured official CLI before starting a Council run. `council doctor` verifies installation and authentication before fan-out and reports provider-specific remediation without handling credentials itself.
 
 ## Stage Contracts
 
-Each stage is a concurrent fan-out followed by a barrier. The barrier waits until all three provider processes have reached a terminal state: completed, failed, or cancelled. There is no default per-provider timeout.
+Each stage is a concurrent fan-out followed by a barrier. The barrier waits until every effective provider process has reached a terminal state: completed, failed, or cancelled. There is no default per-provider timeout.
 
-| Stage          | Input to each provider                                                                                                                 | Required behavior                                                                                                                                         | Persisted output        |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Initial Answer | The same original user prompt, preserved verbatim                                                                                      | Independently investigate and answer without seeing the other providers' work                                                                             | `answers/<provider>.md` |
-| Cross-Review   | The original prompt and only the other two available initial answers, anonymously labeled and independently shuffled for that reviewer | Evaluate correctness, evidence, omissions, risks, and disagreements without reviewing its own answer                                                      | `reviews/<provider>.md` |
-| Final Report   | The same complete evidence set: original prompt, all available initial answers, and all available cross-reviews                        | Revise its conclusion, accept or reject feedback explicitly, identify consensus and disagreement, state unresolved risks, and make a final recommendation | `finals/<provider>.md`  |
+| Stage          | Input to each provider                                                                                                            | Required behavior                                                                                                                                         | Persisted output        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Initial Answer | The same original user prompt, preserved verbatim                                                                                 | Independently investigate and answer without seeing the other providers' work                                                                             | `answers/<provider>.md` |
+| Cross-Review   | The original prompt and only the available peer initial answers, anonymously labeled and independently shuffled for that reviewer | Evaluate correctness, evidence, omissions, risks, and disagreements without reviewing its own answer                                                      | `reviews/<provider>.md` |
+| Final Report   | The same complete evidence set: original prompt, all available initial answers, and all available cross-reviews                   | Revise its conclusion, accept or reject feedback explicitly, identify consensus and disagreement, state unresolved risks, and make a final recommendation | `finals/<provider>.md`  |
 
-All three providers receive equivalent protocol instructions for a given stage. Provider-specific command syntax, event parsing, authentication probes, resume flags, and permission flags stay inside provider adapters.
+All effective providers receive equivalent protocol instructions for a given stage. Provider-specific command syntax, event parsing, authentication probes, resume flags, and permission flags stay inside provider adapters.
 
 ### Initial Answer
 
 - The user enters the prompt once at the Council level.
 - Council stores the prompt verbatim in `prompt.md`.
-- Council sends that same user-authored prompt to all three provider sessions concurrently.
+- Council sends that same user-authored prompt to every effective provider session concurrently.
 - Council-authored protocol instructions may define the output contract, but must be clearly delimited from the user's content.
 - Council must not silently specialize, shorten, or rewrite the prompt for individual providers.
 
 ### Anonymous Cross-Review
 
-Each reviewer receives exactly the other two available answers. It never receives its own answer inside the review payload.
+Each reviewer receives exactly the available peer answers. It never receives its own answer inside the review payload.
 
 Anonymous labels are private to a reviewer. For example, Codex may see Claude as `Answer A` and Copilot as `Answer B`, while Claude may see Copilot as `Answer A` and Codex as `Answer B`. Council independently randomizes both the labels and the order for every reviewer.
 
@@ -118,7 +118,7 @@ Council persists the private reviewer-specific mapping for reproducibility and d
 
 ### Final Report
 
-Final Report is a third three-way reasoning stage, not a Council summary step. Each provider works in its existing provider session and receives the same complete evidence set.
+Final Report is the third peer-parallel reasoning stage, not a Council summary step. Each effective provider works in its existing provider session and receives the same complete evidence set.
 
 Every final report must include:
 
@@ -128,7 +128,7 @@ Every final report must include:
 - unresolved facts, assumptions, and risks; and
 - its final recommendation.
 
-The normal result is always three peer final reports. Council must not automatically merge them, score them, name a chair, or describe one as authoritative.
+The normal result contains one peer final report per effective provider. Council must not automatically merge them, score them, name a chair, or describe one as authoritative.
 
 ## User Decision
 
@@ -200,12 +200,12 @@ A Council Session is a durable multi-turn conversation. A Council Run is one pro
 
 During execution, the current prose artifact uses the `.md.partial` suffix. Completed artifacts from other providers or earlier stages remain untouched if a provider fails or the process is interrupted.
 
-Each Council Session maps to one resumable session for each enabled provider. `council resume <session-id-or-name>` restores the Council Session as a unit; the next prompt fans out to all three resumed provider sessions. Provider-specific resume is not the normal user workflow.
+Each Council Session maps to one resumable session for each participating provider. `council resume <session-id-or-name>` restores the Council Session as a unit; the next prompt fans out to all effective resumed provider sessions. Provider-specific resume is not the normal user workflow.
 
 ## Failure and Cancellation Experience
 
 - A provider failure never causes automatic cancellation of the other providers.
-- If a stage ends without all three required artifacts, Council displays which outputs are complete, failed, or partial and lets the user retry the missing providers or explicitly continue with the available evidence.
+- If a stage ends without all effective-provider artifacts, Council displays which outputs are complete, failed, or partial and lets the user retry the missing providers or explicitly continue with the available evidence.
 - Council never invents a missing answer, assigns another provider to impersonate the failed one, or silently treats a partial file as complete.
 - The first `Ctrl+C` requests graceful cancellation for every running child, stops stage progression, and flushes events and partial artifacts.
 - The second `Ctrl+C` force-terminates remaining process trees and still attempts a final metadata flush.

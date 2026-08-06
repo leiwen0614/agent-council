@@ -2,7 +2,7 @@
 
 ## Project Mission
 
-Build a cross-platform CLI named **Agent Council** that sends one user prompt to Codex CLI, Claude Code, and GitHub Copilot CLI, lets the three agents independently research the same problem, runs anonymous cross-review, and presents three final reports for the user to judge.
+Build a cross-platform CLI named **Agent Council** that sends one user prompt to Codex CLI, Claude Code, and GitHub Copilot CLI, lets the available agents independently research the same problem, runs anonymous cross-review, and presents peer final reports for the user to judge. Two or three providers may participate; all three are configured by default, and a run must never start with fewer than two ready providers.
 
 Agent Council coordinates the provider CLIs. It does not act as a fourth agent, call an additional model, or make the final decision for the user.
 
@@ -10,15 +10,15 @@ Agent Council coordinates the provider CLIs. It does not act as a fourth agent, 
 
 Treat the following as product requirements. Do not change them without explicit user approval.
 
-1. **One Council prompt fans out to all three agents.**
+1. **One Council prompt fans out to every effective agent.**
    - The normal interaction unit is the Council, not an individual provider.
-   - Codex, Claude, and Copilot receive the same user-authored prompt.
+   - Every ready configured provider receives the same user-authored prompt.
    - Do not design the primary workflow around separately prompting or resuming providers.
 
-2. **All reasoning stages remain three-way and parallel.**
-   - Initial answer: all three agents independently answer the same prompt.
-   - Cross-review: all three agents run concurrently and each reviews only the other two answers.
-   - Final report: all three agents run concurrently and each produces its own revised conclusion.
+2. **All reasoning stages remain peer-parallel.**
+   - Initial answer: every effective agent independently answers the same prompt.
+   - Cross-review: every effective agent runs concurrently and reviews only peer answers.
+   - Final report: every effective agent runs concurrently and produces its own revised conclusion.
 
 3. **Cross-review is anonymous.**
    - Hide provider identities from reviewers.
@@ -79,8 +79,8 @@ Council Session
 - Each Council Session owns exactly one resumable session per enabled provider.
 - `.council/` metadata is the local source of truth for mapping a Council Session to provider session IDs.
 - Store only non-sensitive provider session identifiers and configuration. Never store provider auth credentials.
-- `council resume <session-id-or-name>` resumes the entire Council Session and all three provider sessions as one unit.
-- After resume, the next user prompt fans out to all three resumed provider sessions.
+- `council resume <session-id-or-name>` resumes the entire Council Session and its effective provider sessions as one unit.
+- After resume, the next user prompt fans out to all effective resumed provider sessions.
 - Provider-specific resume commands may exist only as diagnostic/admin escape hatches; they are not the normal product workflow.
 
 Recommended storage shape:
@@ -119,12 +119,12 @@ The MVP is a research-and-comparison workflow:
 1. `council doctor`
 2. Create or resume one Council Session.
 3. Accept one prompt once.
-4. Run three initial answers concurrently.
-5. Stream and persist all three answers.
-6. Run three anonymous cross-reviews concurrently.
-7. Stream and persist all three reviews.
-8. Run three final-report prompts concurrently in the existing provider sessions.
-9. Stream and persist all three final reports.
+4. Run initial answers from every effective provider concurrently.
+5. Stream and persist every effective-provider answer.
+6. Run anonymous cross-reviews from every effective provider concurrently.
+7. Stream and persist every effective-provider review.
+8. Run final-report prompts concurrently in every effective provider session.
+9. Stream and persist every effective-provider final report.
 10. Let the user record a selected or mixed decision.
 
 Do not expand the MVP into automatic code implementation, multi-worktree execution, a desktop application, cloud sync, hosted accounts, or a Council-owned AI synthesis layer unless the user explicitly changes scope.
@@ -188,7 +188,7 @@ interface AgentAdapter {
 - Start all enabled providers concurrently at each stage.
 - Use explicit stage barriers: review begins only after the initial-answer stage is resolved; final reporting begins only after review is resolved.
 - Define and test behavior for a provider that fails or produces no answer. Do not invent a replacement answer or ask another provider to impersonate it.
-- Surface partial-stage status clearly and let the user retry or continue when a full three-way stage is impossible.
+- Surface partial-stage status clearly and let the user retry or continue when the effective-provider stage is incomplete.
 - First `Ctrl+C`: request graceful cancellation from all running children, stop accepting new events, flush files, and preserve partial outputs.
 - Second `Ctrl+C`: force termination of remaining child processes and still attempt a final metadata flush.
 - Account for Windows process-tree termination separately from POSIX signals and cover both paths with tests.
@@ -224,7 +224,7 @@ execution:
 - Preserve the user's original prompt verbatim in `prompt.md`.
 - Separate Council-authored protocol instructions from user-authored content with explicit delimiters.
 - Do not silently rewrite the user's question differently for each provider.
-- Cross-review prompts must use per-reviewer anonymous labels and include only the other two available answers.
+- Cross-review prompts must use per-reviewer anonymous labels and include only available peer answers.
 - Final-report prompts must give each provider the same complete evidence set: original prompt, all available initial answers, and all available cross-reviews.
 - Require each final report to state:
   - revised conclusion

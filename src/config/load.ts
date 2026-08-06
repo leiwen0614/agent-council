@@ -50,6 +50,7 @@ async function readConfigFile(path: string): Promise<PartialCouncilConfig> {
 
 function mergeConfig(base: CouncilConfig, override: PartialCouncilConfig): CouncilConfig {
   return {
+    enabledProviders: override.enabledProviders ?? base.enabledProviders,
     agents: {
       codex: { yolo: override.agents?.codex?.yolo ?? base.agents.codex.yolo },
       claude: { yolo: override.agents?.claude?.yolo ?? base.agents.claude.yolo },

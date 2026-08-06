@@ -6,6 +6,7 @@ export const DEFAULT_CONFIG: CouncilConfig = {
     claude: { yolo: false },
     copilot: { yolo: false }
   },
+  enabledProviders: ["codex", "claude", "copilot"],
   ui: {
     maxPanelLines: 18
   }

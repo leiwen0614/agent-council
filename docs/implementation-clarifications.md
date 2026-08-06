@@ -1,16 +1,16 @@
 # Agent Council MVP — Implementation Clarifications
 
-These clarifications resolve ambiguities between the strict three-provider product model and the runtime fault-tolerance behavior. Under normal operation, every Council run requires Codex, Claude, and GitHub Copilot. Degraded execution is allowed only after a runtime failure and only with explicit user confirmation.
+These clarifications define the two-or-three-provider product model and runtime fault-tolerance behavior. Under normal operation, a Council run uses every configured provider that passes preflight. Execution is refused when fewer than two are ready. Degraded execution after a runtime failure requires explicit user confirmation.
 
 ## 1. Provider requirements
 
-All three providers are mandatory in the MVP.
+At least two providers are mandatory in the MVP.
 
-Codex, Claude, and Copilot define the product. Remove `agents.<provider>.enabled` from the MVP configuration, or require it to be `true` if temporarily retained for schema compatibility.
+Codex, Claude, and Copilot define the supported provider set, and all three are configured by default.
 
-`council doctor` and run preflight must block a new run if any provider is missing, unauthenticated, or invalidly configured.
+`council doctor` reports configured providers. Run preflight selects the ready configured providers, persists that effective set, and blocks a new run only when fewer than two are ready.
 
-A provider failing after all three have been launched is a runtime partial failure. The explicit degraded continuation described below does not create a supported two-provider configuration mode.
+A provider failing after a stage has launched is a runtime partial failure. This is distinct from a run that started normally with an effective two-provider set.
 
 ## 2. Degraded continuation and minimum evidence
 
@@ -112,4 +112,4 @@ Selecting one provider or recording a mixed decision automatically creates `deci
 
 ## Core product invariant
 
-Under normal operation, Council always asks Codex, Claude, and Copilot to work on the same task. Degraded execution is an explicitly chosen recovery path for a particular failed run—not a configurable two-provider operating mode.
+Under normal operation, Council asks every effective provider to work on the same task and requires at least two. Degraded execution is an explicitly chosen recovery path for a provider that fails after launch.

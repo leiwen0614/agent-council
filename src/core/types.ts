@@ -29,6 +29,7 @@ export type ProviderConfig = {
 
 export type CouncilConfig = {
   agents: Record<ProviderId, ProviderConfig>;
+  enabledProviders: ProviderId[];
   ui: {
     maxPanelLines: number;
   };
@@ -101,6 +102,7 @@ export type EvidenceRecord = {
 
 export type EffectiveRunConfig = {
   agents: Record<ProviderId, ProviderConfig>;
+  enabledProviders: ProviderId[];
 };
 
 export type CouncilRun = {

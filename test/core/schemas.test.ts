@@ -31,6 +31,7 @@ function runWith(reviewMappings: unknown) {
     eventSequence: 0,
     degraded: false,
     effectiveConfig: {
+      enabledProviders: ["codex", "copilot"],
       agents: {
         codex: { yolo: false },
         claude: { yolo: false },

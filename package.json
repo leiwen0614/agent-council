@@ -6,6 +6,8 @@
   "bin": {
     "council": "dist/cli.js"
   },
+  "license": "UNLICENSED",
+  "private": true,
   "files": [
     "dist",
     "README.md"
@@ -14,7 +16,9 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "prepack": "npm run build",
     "dev": "tsx src/cli.tsx",
     "format": "prettier --check .",
     "format:write": "prettier --write .",

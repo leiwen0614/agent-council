@@ -14,9 +14,17 @@ const providerStatusSchema = z.enum([
 
 const providerConfigSchema = z.object({ yolo: z.boolean() }).strict();
 const partialProviderConfigSchema = providerConfigSchema.partial();
+const enabledProvidersSchema = z
+  .array(providerIdSchema)
+  .min(2)
+  .max(3)
+  .refine((providers) => new Set(providers).size === providers.length, {
+    message: "Enabled providers must be unique."
+  });
 
 export const partialCouncilConfigSchema = z
   .object({
+    enabledProviders: enabledProvidersSchema.optional(),
     agents: z
       .object({
         codex: partialProviderConfigSchema.optional(),
@@ -34,6 +42,7 @@ export const partialCouncilConfigSchema = z
 
 export const councilConfigSchema = z
   .object({
+    enabledProviders: enabledProvidersSchema,
     agents: z
       .object({
         codex: providerConfigSchema,
@@ -140,6 +149,7 @@ export const councilRunSchema = z
     degraded: z.boolean(),
     effectiveConfig: z
       .object({
+        enabledProviders: enabledProvidersSchema,
         agents: z
           .object({
             codex: providerConfigSchema,

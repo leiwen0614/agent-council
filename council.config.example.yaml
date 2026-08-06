@@ -1,0 +1,15 @@
+enabledProviders:
+  - codex
+  - claude
+  - copilot
+
+agents:
+  codex:
+    yolo: false
+  claude:
+    yolo: false
+  copilot:
+    yolo: false
+
+ui:
+  maxPanelLines: 18

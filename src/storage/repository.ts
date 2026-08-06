@@ -15,15 +15,19 @@ import {
   PROVIDERS,
   STAGES,
   type CouncilDecision,
+  type CouncilEvent,
   type CouncilRun,
   type CouncilSession,
   type EffectiveRunConfig,
+  type NewCouncilEvent,
   type ProviderId,
   type ProviderStageState,
   type Stage
 } from "../core/types.js";
 import { CouncilError } from "../util/errors.js";
+import { redactSecrets } from "../util/redact.js";
 import { makeRunId, nowIso } from "../util/time.js";
+import { appendEventRecord, createCouncilEvent, inspectEventLog } from "./events.js";
 import { readValidatedJson, writeJsonAtomic } from "./json.js";
 import { CouncilPaths } from "./paths.js";
 
@@ -36,6 +40,9 @@ const ARTIFACT_RELATIVE: Record<Stage, Record<ProviderId, string>> = {
   review: { codex: "reviews/codex.md", claude: "reviews/claude.md", copilot: "reviews/copilot.md" },
   final: { codex: "finals/codex.md", claude: "finals/claude.md", copilot: "finals/copilot.md" }
 };
+
+const SENSITIVE_DIAGNOSTIC_KEY =
+  /(?:api[_-]?key|access[_-]?token|auth(?:orization)?|password|secret|credential)/i;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -65,6 +72,12 @@ function initialStage(stage: Stage): CouncilRun["stages"][Stage] {
 
 export class CouncilRepository {
   readonly paths: CouncilPaths;
+  private readonly eventOperations = new Map<string, Promise<void>>();
+  private readonly eventStates = new Map<
+    string,
+    { sequence: number; needsLineBreakBeforeAppend: boolean }
+  >();
+  private readonly metadataOperations = new Map<string, Promise<void>>();
 
   constructor(projectRoot: string) {
     this.paths = new CouncilPaths(projectRoot);
@@ -109,8 +122,11 @@ export class CouncilRepository {
   }
 
   async saveSession(session: CouncilSession): Promise<void> {
-    session.updatedAt = nowIso();
-    await writeJsonAtomic(this.paths.sessionJson(session.id), councilSessionSchema.parse(session));
+    const path = this.paths.sessionJson(session.id);
+    await this.withOperation(this.metadataOperations, path, async () => {
+      session.updatedAt = nowIso();
+      await writeJsonAtomic(path, councilSessionSchema.parse(session));
+    });
   }
 
   async listSessions(): Promise<CouncilSession[]> {
@@ -218,8 +234,11 @@ export class CouncilRepository {
   }
 
   async saveRun(run: CouncilRun): Promise<void> {
-    run.updatedAt = nowIso();
-    await writeJsonAtomic(this.paths.runJson(run.sessionId, run.id), councilRunSchema.parse(run));
+    const path = this.paths.runJson(run.sessionId, run.id);
+    await this.withOperation(this.metadataOperations, path, async () => {
+      run.updatedAt = nowIso();
+      await writeJsonAtomic(path, councilRunSchema.parse(run));
+    });
   }
 
   async listRuns(sessionId: string): Promise<CouncilRun[]> {
@@ -250,6 +269,63 @@ export class CouncilRepository {
     return readFile(this.paths.prompt(run.sessionId, run.id), "utf8");
   }
 
+  async appendEvent(run: CouncilRun, input: NewCouncilEvent): Promise<CouncilEvent> {
+    if (input.sessionId !== run.sessionId || input.runId !== run.id) {
+      throw new CouncilError(
+        "EVENT_CONTEXT_MISMATCH",
+        "The event does not belong to the supplied Council run."
+      );
+    }
+
+    const path = this.paths.events(run.sessionId, run.id);
+    return this.withEventOperation(path, async () => {
+      let state = this.eventStates.get(path);
+      if (state === undefined) {
+        const snapshot = await inspectEventLog(
+          path,
+          { sessionId: run.sessionId, runId: run.id },
+          true
+        );
+        state = {
+          sequence: snapshot.events.length,
+          needsLineBreakBeforeAppend: snapshot.needsLineBreakBeforeAppend
+        };
+        this.eventStates.set(path, state);
+      }
+      const event = createCouncilEvent(input, state.sequence + 1);
+      await appendEventRecord(path, event, state.needsLineBreakBeforeAppend);
+      state.sequence = event.sequence;
+      state.needsLineBreakBeforeAppend = false;
+
+      // events.jsonl is authoritative if interruption happens between these two writes.
+      // The next append derives its sequence from the log and repairs this counter.
+      run.eventSequence = event.sequence;
+      if (!["provider.prose", "provider.progress", "diagnostic"].includes(input.kind)) {
+        await this.saveRun(run);
+      }
+      return event;
+    });
+  }
+
+  async readEvents(run: CouncilRun): Promise<CouncilEvent[]> {
+    const path = this.paths.events(run.sessionId, run.id);
+    return this.withEventOperation(path, async () => {
+      const snapshot = await inspectEventLog(
+        path,
+        {
+          sessionId: run.sessionId,
+          runId: run.id
+        },
+        true
+      );
+      return snapshot.events;
+    });
+  }
+
+  clearEventState(run: CouncilRun): void {
+    this.eventStates.delete(this.paths.events(run.sessionId, run.id));
+  }
+
   async readArtifact(run: CouncilRun, stage: Stage, provider: ProviderId): Promise<string | null> {
     const path = this.paths.artifact(run.sessionId, run.id, stage, provider);
     if (!(await exists(path))) {
@@ -260,12 +336,16 @@ export class CouncilRepository {
 
   async prepareAttempt(run: CouncilRun, stage: Stage, provider: ProviderId): Promise<void> {
     const partial = this.paths.partialArtifact(run.sessionId, run.id, stage, provider);
-    if (await exists(partial)) {
-      const attempt = Math.max(1, run.stages[stage].providers[provider].attempts.length);
-      await rename(
-        partial,
-        this.paths.attemptPartial(run.sessionId, run.id, stage, provider, attempt)
-      );
+    const complete = this.paths.artifact(run.sessionId, run.id, stage, provider);
+    for (const interruptedArtifact of [partial, complete]) {
+      if (!(await exists(interruptedArtifact))) continue;
+      let attempt = Math.max(1, run.stages[stage].providers[provider].attempts.length);
+      let archived = this.paths.attemptPartial(run.sessionId, run.id, stage, provider, attempt);
+      while (await exists(archived)) {
+        attempt += 1;
+        archived = this.paths.attemptPartial(run.sessionId, run.id, stage, provider, attempt);
+      }
+      await rename(interruptedArtifact, archived);
     }
     await mkdir(dirname(partial), { recursive: true });
     await writeFile(partial, "", { encoding: "utf8", flag: "wx" });
@@ -279,7 +359,7 @@ export class CouncilRepository {
   ): Promise<void> {
     await appendFile(
       this.paths.partialArtifact(run.sessionId, run.id, stage, provider),
-      text,
+      redactSecrets(text),
       "utf8"
     );
   }
@@ -324,7 +404,13 @@ export class CouncilRepository {
   ): Promise<void> {
     const path = this.paths.diagnostic(run.sessionId, run.id, stage, provider);
     await mkdir(dirname(path), { recursive: true });
-    await appendFile(path, `${JSON.stringify(record)}\n`, "utf8");
+    const redacted = JSON.stringify(record, (key, value: unknown) => {
+      if (key.length > 0 && SENSITIVE_DIAGNOSTIC_KEY.test(key)) {
+        return "[REDACTED]";
+      }
+      return typeof value === "string" ? redactSecrets(value) : value;
+    });
+    await appendFile(path, redacted + "\n", "utf8");
   }
 
   async saveDecision(run: CouncilRun, decision: CouncilDecision): Promise<void> {
@@ -355,6 +441,12 @@ export class CouncilRepository {
     await mkdir(dirname(target), { recursive: true });
     await copyFile(source, target);
     return target;
+  }
+
+  async abandonRun(session: CouncilSession, run: CouncilRun): Promise<void> {
+    run.status = "abandoned";
+    await this.saveRun(run);
+    await this.finishRun(session, run);
   }
 
   async setProviderSessionId(
@@ -390,5 +482,31 @@ export class CouncilRepository {
         )
       )
     );
+  }
+
+  private async withEventOperation<T>(path: string, operation: () => Promise<T>): Promise<T> {
+    return this.withOperation(this.eventOperations, path, operation);
+  }
+
+  private async withOperation<T>(
+    operations: Map<string, Promise<void>>,
+    path: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const previous = operations.get(path) ?? Promise.resolve();
+    const current = previous.then(operation, operation);
+    const settled = current.then(
+      () => undefined,
+      () => undefined
+    );
+    operations.set(path, settled);
+
+    try {
+      return await current;
+    } finally {
+      if (operations.get(path) === settled) {
+        operations.delete(path);
+      }
+    }
   }
 }
