@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { ZodType } from "zod";
+import type { ZodType, ZodTypeDef } from "zod";
 import { CouncilError, errorMessage } from "../util/errors.js";
 
 export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
@@ -25,7 +25,10 @@ export async function writeJsonAtomic(path: string, value: unknown): Promise<voi
   }
 }
 
-export async function readValidatedJson<T>(path: string, schema: ZodType<T>): Promise<T> {
+export async function readValidatedJson<T>(
+  path: string,
+  schema: ZodType<T, ZodTypeDef, unknown>
+): Promise<T> {
   let value: unknown;
   try {
     value = JSON.parse(await readFile(path, "utf8"));

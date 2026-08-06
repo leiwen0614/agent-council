@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { councilRunSchema } from "../../src/core/schemas.js";
+import { councilConfigSchema, councilRunSchema } from "../../src/core/schemas.js";
 
 const timestamp = "2026-08-06T12:00:00.000Z";
 
@@ -33,9 +33,9 @@ function runWith(reviewMappings: unknown) {
     effectiveConfig: {
       enabledProviders: ["codex", "copilot"],
       agents: {
-        codex: { yolo: false },
-        claude: { yolo: false },
-        copilot: { yolo: false }
+        codex: { yolo: false, model: null, effort: null },
+        claude: { yolo: false, model: null, effort: null },
+        copilot: { yolo: false, model: null, effort: null }
       }
     },
     stages: {
@@ -73,5 +73,56 @@ describe("councilRunSchema review mappings", () => {
     expect(
       councilRunSchema.safeParse(runWith({ chair: { labels: [], displayOrder: [] } })).success
     ).toBe(false);
+  });
+});
+
+describe("provider model and effort schemas", () => {
+  const configured = {
+    enabledProviders: ["codex", "claude", "copilot"],
+    agents: {
+      codex: { yolo: true, model: "gpt-5.6-sol", effort: "xhigh" },
+      claude: { yolo: true, model: "claude-opus-4-8", effort: "max" },
+      copilot: { yolo: true, model: "gpt-5.6-sol", effort: "max" }
+    },
+    ui: { maxPanelLines: 18 }
+  };
+
+  it("accepts each provider's tested maximum effort", () => {
+    expect(councilConfigSchema.safeParse(configured).success).toBe(true);
+  });
+
+  it("rejects UI-only or invented effort names", () => {
+    expect(
+      councilConfigSchema.safeParse({
+        ...configured,
+        agents: {
+          ...configured.agents,
+          codex: { ...configured.agents.codex, effort: "ultra" },
+          claude: { ...configured.agents.claude, effort: "ultracode" }
+        }
+      }).success
+    ).toBe(false);
+  });
+
+  it("loads legacy persisted runs with inherited model defaults", () => {
+    const current = runWith({});
+    const legacy = {
+      ...current,
+      effectiveConfig: {
+        ...current.effectiveConfig,
+        agents: {
+          codex: { yolo: false },
+          claude: { yolo: false },
+          copilot: { yolo: false }
+        }
+      }
+    };
+
+    const result = councilRunSchema.parse(legacy);
+    expect(result.effectiveConfig.agents.codex).toEqual({
+      yolo: false,
+      model: null,
+      effort: null
+    });
   });
 });

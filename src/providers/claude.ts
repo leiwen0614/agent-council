@@ -58,6 +58,8 @@ export class ClaudeAdapter extends BaseAdapter {
       "stream-json",
       "--verbose",
       "--include-partial-messages",
+      ...(options.model === null ? [] : ["--model", options.model]),
+      ...(options.effort === null ? [] : ["--effort", options.effort]),
       ...(options.yolo
         ? ["--dangerously-skip-permissions"]
         : ["--permission-mode", "dontAsk", "--tools", "", "--safe-mode"]),

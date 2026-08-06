@@ -25,6 +25,8 @@ export type RunStatus =
 
 export type ProviderConfig = {
   yolo: boolean;
+  model: string | null;
+  effort: string | null;
 };
 
 export type CouncilConfig = {

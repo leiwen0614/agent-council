@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ProviderConfig } from "./types.js";
 
 const providerIdSchema = z.enum(["codex", "claude", "copilot"]);
 const stageSchema = z.enum(["initial", "review", "final"]);
@@ -12,8 +13,92 @@ const providerStatusSchema = z.enum([
   "skipped"
 ]);
 
-const providerConfigSchema = z.object({ yolo: z.boolean() }).strict();
-const partialProviderConfigSchema = providerConfigSchema.partial();
+const modelSchema = z.string().trim().min(1).max(200).nullable();
+const providerConfigFields = { yolo: z.boolean(), model: modelSchema };
+const codexProviderConfigSchema = z
+  .object({
+    ...providerConfigFields,
+    effort: z.enum(["minimal", "low", "medium", "high", "xhigh"]).nullable()
+  })
+  .strict();
+const claudeProviderConfigSchema = z
+  .object({
+    ...providerConfigFields,
+    effort: z.enum(["low", "medium", "high", "xhigh", "max"]).nullable()
+  })
+  .strict();
+const copilotProviderConfigSchema = z
+  .object({
+    ...providerConfigFields,
+    effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]).nullable()
+  })
+  .strict();
+const partialModelSchema = modelSchema.optional();
+const partialCodexProviderConfigSchema = z
+  .object({
+    yolo: z.boolean().optional(),
+    model: partialModelSchema,
+    effort: z.enum(["minimal", "low", "medium", "high", "xhigh"]).nullable().optional()
+  })
+  .strict();
+const partialClaudeProviderConfigSchema = z
+  .object({
+    yolo: z.boolean().optional(),
+    model: partialModelSchema,
+    effort: z.enum(["low", "medium", "high", "xhigh", "max"]).nullable().optional()
+  })
+  .strict();
+const partialCopilotProviderConfigSchema = z
+  .object({
+    yolo: z.boolean().optional(),
+    model: partialModelSchema,
+    effort: z
+      .enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"])
+      .nullable()
+      .optional()
+  })
+  .strict();
+
+const persistedModelSchema = modelSchema.optional();
+const persistedCodexProviderConfigSchema = z
+  .object({
+    yolo: z.boolean(),
+    model: persistedModelSchema,
+    effort: z.enum(["minimal", "low", "medium", "high", "xhigh"]).nullable().optional()
+  })
+  .strict()
+  .transform((value): ProviderConfig => ({
+    yolo: value.yolo,
+    model: value.model ?? null,
+    effort: value.effort ?? null
+  }));
+const persistedClaudeProviderConfigSchema = z
+  .object({
+    yolo: z.boolean(),
+    model: persistedModelSchema,
+    effort: z.enum(["low", "medium", "high", "xhigh", "max"]).nullable().optional()
+  })
+  .strict()
+  .transform((value): ProviderConfig => ({
+    yolo: value.yolo,
+    model: value.model ?? null,
+    effort: value.effort ?? null
+  }));
+const persistedCopilotProviderConfigSchema = z
+  .object({
+    yolo: z.boolean(),
+    model: persistedModelSchema,
+    effort: z
+      .enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"])
+      .nullable()
+      .optional()
+  })
+  .strict()
+  .transform((value): ProviderConfig => ({
+    yolo: value.yolo,
+    model: value.model ?? null,
+    effort: value.effort ?? null
+  }));
 const enabledProvidersSchema = z
   .array(providerIdSchema)
   .min(2)
@@ -27,9 +112,9 @@ export const partialCouncilConfigSchema = z
     enabledProviders: enabledProvidersSchema.optional(),
     agents: z
       .object({
-        codex: partialProviderConfigSchema.optional(),
-        claude: partialProviderConfigSchema.optional(),
-        copilot: partialProviderConfigSchema.optional()
+        codex: partialCodexProviderConfigSchema.optional(),
+        claude: partialClaudeProviderConfigSchema.optional(),
+        copilot: partialCopilotProviderConfigSchema.optional()
       })
       .strict()
       .optional(),
@@ -45,9 +130,9 @@ export const councilConfigSchema = z
     enabledProviders: enabledProvidersSchema,
     agents: z
       .object({
-        codex: providerConfigSchema,
-        claude: providerConfigSchema,
-        copilot: providerConfigSchema
+        codex: codexProviderConfigSchema,
+        claude: claudeProviderConfigSchema,
+        copilot: copilotProviderConfigSchema
       })
       .strict(),
     ui: z.object({ maxPanelLines: z.number().int().min(3).max(200) }).strict()
@@ -152,9 +237,9 @@ export const councilRunSchema = z
         enabledProviders: enabledProvidersSchema,
         agents: z
           .object({
-            codex: providerConfigSchema,
-            claude: providerConfigSchema,
-            copilot: providerConfigSchema
+            codex: persistedCodexProviderConfigSchema,
+            claude: persistedClaudeProviderConfigSchema,
+            copilot: persistedCopilotProviderConfigSchema
           })
           .strict()
       })

@@ -52,11 +52,28 @@ function mergeConfig(base: CouncilConfig, override: PartialCouncilConfig): Counc
   return {
     enabledProviders: override.enabledProviders ?? base.enabledProviders,
     agents: {
-      codex: { yolo: override.agents?.codex?.yolo ?? base.agents.codex.yolo },
-      claude: { yolo: override.agents?.claude?.yolo ?? base.agents.claude.yolo },
-      copilot: { yolo: override.agents?.copilot?.yolo ?? base.agents.copilot.yolo }
+      codex: mergeProviderConfig(base.agents.codex, override.agents?.codex),
+      claude: mergeProviderConfig(base.agents.claude, override.agents?.claude),
+      copilot: mergeProviderConfig(base.agents.copilot, override.agents?.copilot)
     },
     ui: { maxPanelLines: override.ui?.maxPanelLines ?? base.ui.maxPanelLines }
+  };
+}
+
+function mergeProviderConfig(
+  base: CouncilConfig["agents"][ProviderId],
+  override:
+    | {
+        yolo?: boolean | undefined;
+        model?: string | null | undefined;
+        effort?: string | null | undefined;
+      }
+    | undefined
+): CouncilConfig["agents"][ProviderId] {
+  return {
+    yolo: override?.yolo ?? base.yolo,
+    model: override?.model === undefined ? base.model : override.model,
+    effort: override?.effort === undefined ? base.effort : override.effort
   };
 }
 

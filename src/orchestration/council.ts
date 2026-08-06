@@ -368,13 +368,13 @@ export class CouncilEngine {
               ? this.adapters[provider].start({
                   prompt,
                   cwd: this.options.repository.paths.projectRoot,
-                  yolo: run.effectiveConfig.agents[provider].yolo,
+                  ...run.effectiveConfig.agents[provider],
                   promptPath: provider === "copilot" ? promptReference : undefined
                 })
               : this.adapters[provider].resume({
                   prompt,
                   cwd: this.options.repository.paths.projectRoot,
-                  yolo: run.effectiveConfig.agents[provider].yolo,
+                  ...run.effectiveConfig.agents[provider],
                   sessionId: existingSessionId,
                   promptPath: provider === "copilot" ? promptReference : undefined
                 });

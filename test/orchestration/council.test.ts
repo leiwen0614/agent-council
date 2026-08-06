@@ -16,7 +16,11 @@ import { CouncilRepository } from "../../src/storage/repository.js";
 const temporaryDirectories: string[] = [];
 const config: CouncilConfig = {
   enabledProviders: ["codex", "claude", "copilot"],
-  agents: { codex: { yolo: false }, claude: { yolo: false }, copilot: { yolo: false } },
+  agents: {
+    codex: { yolo: false, model: null, effort: null },
+    claude: { yolo: false, model: null, effort: null },
+    copilot: { yolo: false, model: null, effort: null }
+  },
   ui: { maxPanelLines: 5 }
 };
 
@@ -50,6 +54,8 @@ function processFrom(provider: ProviderId, prompt: string, success = true): Agen
 class FakeAdapter implements AgentAdapter {
   private calls = 0;
   readonly yoloValues: boolean[] = [];
+  readonly modelValues: (string | null)[] = [];
+  readonly effortValues: (string | null)[] = [];
   constructor(
     readonly id: ProviderId,
     private readonly failFirst = false
@@ -63,6 +69,8 @@ class FakeAdapter implements AgentAdapter {
   start(options: StartOptions) {
     this.calls += 1;
     this.yoloValues.push(options.yolo);
+    this.modelValues.push(options.model);
+    this.effortValues.push(options.effort);
     return processFrom(this.id, options.prompt, !(this.failFirst && this.calls === 1));
   }
   resume(options: StartOptions) {
@@ -216,9 +224,9 @@ describe("CouncilEngine", () => {
     const run = await repository.createRun(session, "Persisted permission test.", {
       enabledProviders: config.enabledProviders,
       agents: {
-        codex: { yolo: true },
-        claude: { yolo: false },
-        copilot: { yolo: true }
+        codex: { yolo: true, model: "gpt-5.6-sol", effort: "xhigh" },
+        claude: { yolo: false, model: "claude-opus-4-8", effort: "max" },
+        copilot: { yolo: true, model: "gpt-5.6-sol", effort: "max" }
       }
     });
     const engine = new CouncilEngine({
@@ -234,5 +242,11 @@ describe("CouncilEngine", () => {
     expect(adapters.codex.yoloValues).toEqual([true, true, true]);
     expect(adapters.claude.yoloValues).toEqual([false, false, false]);
     expect(adapters.copilot.yoloValues).toEqual([true, true, true]);
+    expect(adapters.codex.modelValues).toEqual(Array(3).fill("gpt-5.6-sol"));
+    expect(adapters.codex.effortValues).toEqual(Array(3).fill("xhigh"));
+    expect(adapters.claude.modelValues).toEqual(Array(3).fill("claude-opus-4-8"));
+    expect(adapters.claude.effortValues).toEqual(Array(3).fill("max"));
+    expect(adapters.copilot.modelValues).toEqual(Array(3).fill("gpt-5.6-sol"));
+    expect(adapters.copilot.effortValues).toEqual(Array(3).fill("max"));
   });
 });

@@ -83,6 +83,8 @@ export class CopilotAdapter extends BaseAdapter {
       "--no-custom-instructions",
       "--disable-builtin-mcps",
       "--no-auto-update",
+      ...(options.model === null ? [] : ["--model", options.model]),
+      ...(options.effort === null ? [] : ["--effort", options.effort]),
       ...(options.yolo
         ? ["--yolo"]
         : options.promptPath === undefined

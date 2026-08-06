@@ -8,9 +8,9 @@ import { CouncilRepository } from "../../src/storage/repository.js";
 const config: EffectiveRunConfig = {
   enabledProviders: ["codex", "copilot"],
   agents: {
-    codex: { yolo: false },
-    claude: { yolo: false },
-    copilot: { yolo: false }
+    codex: { yolo: false, model: null, effort: null },
+    claude: { yolo: false, model: null, effort: null },
+    copilot: { yolo: false, model: null, effort: null }
   }
 };
 

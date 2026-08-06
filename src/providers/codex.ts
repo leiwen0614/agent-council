@@ -48,6 +48,11 @@ export class CodexAdapter extends BaseAdapter {
   }
 
   private spawn(options: StartOptions | ResumeOptions, resume: boolean): AgentProcess {
+    const modelArguments = options.model === null ? [] : ["--model", options.model];
+    const effortArguments =
+      options.effort === null
+        ? []
+        : ["--config", `model_reasoning_effort=${JSON.stringify(options.effort)}`];
     const permissionArguments = options.yolo
       ? ["--dangerously-bypass-approvals-and-sandbox"]
       : resume
@@ -57,12 +62,23 @@ export class CodexAdapter extends BaseAdapter {
       ? [
           "exec",
           "resume",
+          ...modelArguments,
+          ...effortArguments,
           ...permissionArguments,
           "--json",
           (options as ResumeOptions).sessionId,
           "-"
         ]
-      : ["exec", ...permissionArguments, "--color", "never", "--json", "-"];
+      : [
+          "exec",
+          ...modelArguments,
+          ...effortArguments,
+          ...permissionArguments,
+          "--color",
+          "never",
+          "--json",
+          "-"
+        ];
     return spawnAgentProcess({
       executable: this.executable,
       arguments: argumentsList,

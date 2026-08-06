@@ -26,6 +26,8 @@ function fakeProcess(): ResultPromise {
 }
 
 describe("provider command construction", () => {
+  const defaults = { model: null, effort: null };
+
   function latestArguments(): readonly string[] | undefined {
     const value = mockedExeca.mock.calls.at(-1)?.[1];
     return Array.isArray(value) ? value : undefined;
@@ -33,7 +35,7 @@ describe("provider command construction", () => {
 
   it("uses read-only noninteractive settings for safe mode", () => {
     mockedExeca.mockReturnValueOnce(fakeProcess());
-    new CodexAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: false });
+    new CodexAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: false, ...defaults });
     expect(mockedExeca).toHaveBeenCalledWith(
       "codex",
       ["exec", "--sandbox", "read-only", "--color", "never", "--json", "-"],
@@ -43,11 +45,11 @@ describe("provider command construction", () => {
 
   it("keeps each provider's YOLO flag inside its adapter", () => {
     mockedExeca.mockReturnValueOnce(fakeProcess());
-    new ClaudeAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: true });
+    new ClaudeAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: true, ...defaults });
     expect(latestArguments()).toContain("--dangerously-skip-permissions");
 
     mockedExeca.mockReturnValueOnce(fakeProcess());
-    new CopilotAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: true });
+    new CopilotAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: true, ...defaults });
     expect(latestArguments()).toContain("--yolo");
   });
 
@@ -57,7 +59,8 @@ describe("provider command construction", () => {
       prompt: "large prompt content",
       promptPath: "C:/repo/.council/prompts/final/copilot.md",
       cwd: "C:/repo",
-      yolo: false
+      yolo: false,
+      ...defaults
     });
     expect(latestArguments()).toEqual(
       expect.arrayContaining(["--available-tools=view", "--allow-tool=view"])
@@ -71,6 +74,7 @@ describe("provider command construction", () => {
       prompt: "next",
       cwd: "C:/repo",
       yolo: false,
+      ...defaults,
       sessionId: "saved-session"
     });
     expect(latestArguments()).toEqual([
@@ -82,6 +86,51 @@ describe("provider command construction", () => {
       "saved-session",
       "-"
     ]);
+  });
+
+  it("passes provider-specific model and maximum effort settings on start and resume", () => {
+    mockedExeca.mockReturnValueOnce(fakeProcess());
+    new CodexAdapter().start({
+      prompt: "task",
+      cwd: "C:/repo",
+      yolo: true,
+      model: "gpt-5.6-sol",
+      effort: "xhigh"
+    });
+    expect(latestArguments()).toEqual(
+      expect.arrayContaining([
+        "--model",
+        "gpt-5.6-sol",
+        "--config",
+        'model_reasoning_effort="xhigh"'
+      ])
+    );
+
+    mockedExeca.mockReturnValueOnce(fakeProcess());
+    new ClaudeAdapter().resume({
+      prompt: "task",
+      cwd: "C:/repo",
+      yolo: true,
+      model: "claude-opus-4-8",
+      effort: "max",
+      sessionId: "claude-session"
+    });
+    expect(latestArguments()).toEqual(
+      expect.arrayContaining(["--model", "claude-opus-4-8", "--effort", "max"])
+    );
+
+    mockedExeca.mockReturnValueOnce(fakeProcess());
+    new CopilotAdapter().resume({
+      prompt: "task",
+      cwd: "C:/repo",
+      yolo: true,
+      model: "gpt-5.6-sol",
+      effort: "max",
+      sessionId: "copilot-session"
+    });
+    expect(latestArguments()).toEqual(
+      expect.arrayContaining(["--model", "gpt-5.6-sol", "--effort", "max"])
+    );
   });
 });
 

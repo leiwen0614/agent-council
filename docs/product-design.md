@@ -216,23 +216,31 @@ Each Council Session maps to one resumable session for each participating provid
 Permission bypass is explicit and independent per provider. Safe/approval mode is the default for all providers.
 
 ```yaml
+enabledProviders:
+  - codex
+  - claude
+  - copilot
+
 agents:
   codex:
-    enabled: true
     yolo: false
+    model: null
+    effort: null
   claude:
-    enabled: true
     yolo: false
+    model: null
+    effort: null
   copilot:
-    enabled: true
     yolo: false
-
-execution:
-  timeout: null
-  cancelOnAgentFailure: false
+    model: null
+    effort: null
 ```
 
-`timeout: null` means Council imposes no duration limit. An optional whole-run duration limit may be added later, but there is no default timeout and no implicit per-provider timeout. Provider-specific YOLO flags are translated only inside adapters and never broaden permissions for another provider.
+`model: null` and `effort: null` inherit the official provider CLI defaults. Explicit model and
+effort values are validated per provider, persisted in effective run metadata, and reused on
+resume. An optional whole-run duration limit may be added later, but there is no default timeout
+and no implicit per-provider timeout. Provider-specific YOLO, model, and effort flags are
+translated only inside adapters and never broaden or alter another provider.
 
 ## MVP Boundary
 

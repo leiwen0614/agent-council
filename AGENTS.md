@@ -198,24 +198,31 @@ interface AgentAdapter {
 Support checked-in defaults plus user-local overrides without committing credentials. A configuration model should make provider choices explicit:
 
 ```yaml
+enabledProviders:
+  - codex
+  - claude
+  - copilot
+
 agents:
   codex:
-    enabled: true
     yolo: false
+    model: null
+    effort: null
   claude:
-    enabled: true
     yolo: false
+    model: null
+    effort: null
   copilot:
-    enabled: true
     yolo: false
-
-execution:
-  timeout: null
-  cancelOnAgentFailure: false
+    model: null
+    effort: null
 ```
 
-- Interpret `timeout: null` as no Council-enforced timeout.
+- Council imposes no timeout by default.
 - CLI flags may override config for one run, but persisted run metadata must record the effective non-sensitive settings.
+- Optional provider-specific `model` and `effort` values must stay inside adapters, be validated
+  against that provider's supported effort vocabulary, and be reused on resume. `null` inherits
+  the official provider CLI default.
 - Reject unknown provider names and contradictory options with actionable messages.
 - Never persist secrets in project config, `run.json`, `events.jsonl`, Markdown output, fixtures, or snapshots.
 

@@ -6,10 +6,16 @@ enabledProviders:
 agents:
   codex:
     yolo: false
+    model: null
+    effort: null
   claude:
     yolo: false
+    model: null
+    effort: null
   copilot:
     yolo: false
+    model: null
+    effort: null
 
 ui:
   maxPanelLines: 18

@@ -4,6 +4,8 @@ export type StartOptions = {
   prompt: string;
   cwd: string;
   yolo: boolean;
+  model: string | null;
+  effort: string | null;
   promptPath?: string | undefined;
 };
 

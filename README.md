@@ -70,6 +70,30 @@ enabledProviders:
   - copilot
 ```
 
+Each provider can also pin its official CLI model and reasoning effort. Use `null` to inherit the
+provider CLI default. This repository's deep-research configuration uses the strongest supported
+settings exposed by the currently tested CLI versions:
+
+```yaml
+agents:
+  codex:
+    yolo: true
+    model: gpt-5.6-sol
+    effort: xhigh
+  claude:
+    yolo: true
+    model: claude-opus-4-8
+    effort: max
+  copilot:
+    yolo: true
+    model: gpt-5.6-sol
+    effort: max
+```
+
+These values are passed on both provider start and resume and are persisted in `run.json`. YOLO
+bypasses provider permission checks and is not confined to the project directory; use it only in
+an externally isolated environment when filesystem confinement is required.
+
 At preflight, Council uses every configured provider that is installed and authenticated. If one
 of three is unavailable, the run proceeds with the other two and records that effective provider
 set in `run.json`. If fewer than two are ready, the run is refused.
