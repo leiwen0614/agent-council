@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Agent Council local sessions and run artifacts
+.council/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs and package-manager caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/
+.pnpm-store/
+
+# Tool caches and temporary files
+.eslintcache
+.vite/
+.vitest/
+.cache/
+tmp/
+temp/
+
+# IDE metadata
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
