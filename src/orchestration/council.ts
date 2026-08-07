@@ -338,7 +338,9 @@ export class CouncilEngine {
     const view =
       this.options.live === false
         ? { update: () => undefined, close: () => undefined }
-        : createLiveView(snapshot, this.options.config.ui.maxPanelLines);
+        : createLiveView(snapshot, this.options.config.ui.maxPanelLines, () =>
+            this.cancellation.interrupt()
+          );
     try {
       await Promise.all(
         providers.map(async (provider) => {

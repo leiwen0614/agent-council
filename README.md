@@ -94,6 +94,14 @@ These values are passed on both provider start and resume and are persisted in `
 bypasses provider permission checks and is not confined to the project directory; use it only in
 an externally isolated environment when filesystem confinement is required.
 
+During a live stage, each agent panel has an independent scroll position. The cyan-bordered panel
+receives keyboard commands: use `Tab`, `Shift+Tab`, left/right, or `1`–`3` to select a panel;
+up/down (or `k`/`j`) to scroll one display row; `Page Up`/`Page Down` to move one viewport; `Home`
+to jump to the beginning; and `End` to resume following new output. Press `Enter` or `f` to show
+the focused panel at full width, then `Esc` to restore all panels. `ui.maxPanelLines` sets the
+visible viewport height, not a history limit. Full provider output continues to be saved under
+`.council/`, including while a panel is paused and scrolled back.
+
 Although Claude Code accepts `max`, some inference gateways route Claude through a backend whose
 maximum supported effort is `xhigh`. This repository uses `xhigh` to avoid repeated invalid-request
 retries on such installations.

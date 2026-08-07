@@ -25,6 +25,7 @@ export async function terminateProcessTree(pid: number, force: boolean): Promise
 export class CancellationManager {
   private readonly processes = new Set<CancellableProcess>();
   private interruptCount = 0;
+  private onFirstInterrupt: (() => void) | null = null;
   private onSignal: (() => void) | null = null;
 
   add(processHandle: CancellableProcess): () => void {
@@ -35,17 +36,21 @@ export class CancellationManager {
   install(onFirstInterrupt: () => void): void {
     if (this.onSignal !== null) process.off("SIGINT", this.onSignal);
     this.interruptCount = 0;
-    this.onSignal = () => {
-      this.interruptCount += 1;
-      if (this.interruptCount === 1) onFirstInterrupt();
-      void this.cancelAll(this.interruptCount > 1);
-    };
+    this.onFirstInterrupt = onFirstInterrupt;
+    this.onSignal = () => this.interrupt();
     process.on("SIGINT", this.onSignal);
+  }
+
+  interrupt(): void {
+    this.interruptCount += 1;
+    if (this.interruptCount === 1) this.onFirstInterrupt?.();
+    void this.cancelAll(this.interruptCount > 1);
   }
 
   uninstall(): void {
     if (this.onSignal !== null) process.off("SIGINT", this.onSignal);
     this.onSignal = null;
+    this.onFirstInterrupt = null;
   }
 
   get cancelled(): boolean {
