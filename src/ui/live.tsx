@@ -40,6 +40,16 @@ function tailLines(text: string, maximum: number): string {
     : normalized.split(/\r?\n/).slice(-maximum).join("\n");
 }
 
+export function cloneLiveSnapshot(snapshot: LiveSnapshot): LiveSnapshot {
+  return {
+    ...snapshot,
+    providers: [...snapshot.providers],
+    panels: Object.fromEntries(
+      Object.entries(snapshot.panels).map(([provider, panel]) => [provider, { ...panel }])
+    ) as Record<ProviderId, LivePanelState>
+  };
+}
+
 function statusColor(status: ProviderStatus): "green" | "red" | "yellow" | "cyan" {
   if (status === "completed") return "green";
   if (status === "failed" || status === "blocked_by_approval") return "red";
@@ -113,7 +123,8 @@ export function createLiveView(initial: LiveSnapshot, maxPanelLines: number): Li
   );
   return {
     update(snapshot) {
-      for (const listener of listeners) listener(snapshot);
+      const next = cloneLiveSnapshot(snapshot);
+      for (const listener of listeners) listener(next);
     },
     close() {
       instance?.unmount();

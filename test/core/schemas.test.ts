@@ -81,7 +81,7 @@ describe("provider model and effort schemas", () => {
     enabledProviders: ["codex", "claude", "copilot"],
     agents: {
       codex: { yolo: true, model: "gpt-5.6-sol", effort: "xhigh" },
-      claude: { yolo: true, model: "claude-opus-4-8", effort: "max" },
+      claude: { yolo: true, model: "claude-opus-4-8", effort: "xhigh" },
       copilot: { yolo: true, model: "gpt-5.6-sol", effort: "max" }
     },
     ui: { maxPanelLines: 18 }

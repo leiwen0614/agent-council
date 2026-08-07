@@ -73,19 +73,26 @@ type ProcessResultInput = {
   shortMessage?: string | undefined;
 };
 
-function processResult(result: ProcessResultInput, sessionId: string | null): AgentProcessResult {
+function processResult(
+  result: ProcessResultInput,
+  sessionId: string | null,
+  lastDiagnostic: string | null
+): AgentProcessResult {
   return {
     exitCode: result.exitCode ?? null,
     signal: result.signal ?? null,
     cancelled: result.isCanceled || result.isTerminated,
     sessionId,
-    error: result.failed ? redactSecrets(result.shortMessage ?? "Provider process failed.") : null
+    error: result.failed
+      ? redactSecrets(lastDiagnostic ?? result.shortMessage ?? "Provider process failed.")
+      : null
   };
 }
 
 export function spawnAgentProcess(specification: SpawnSpecification): AgentProcess {
   const queue = new AsyncEventQueue();
   let sessionId: string | null = specification.initialSessionId ?? null;
+  let lastDiagnostic: string | null = null;
   const subprocess = execa(specification.executable, specification.arguments, {
     cwd: specification.cwd,
     ...(specification.promptViaStdin === false ? {} : { input: specification.prompt }),
@@ -101,18 +108,20 @@ export function spawnAgentProcess(specification: SpawnSpecification): AgentProce
     const event = parseSafely(line, specification.parseLine);
     if (event !== null) {
       if (event.type === "session") sessionId = event.sessionId;
+      if (event.type === "diagnostic") lastDiagnostic = event.text;
       queue.push(event);
     }
   });
   const errors = consumeLines(subprocess.stderr, (line) => {
     const redacted = redactSecrets(line);
+    lastDiagnostic = redacted;
     queue.push({ type: "diagnostic", text: redacted, raw: redacted });
   });
   const completion = (async (): Promise<AgentProcessResult> => {
     try {
       const result = await subprocess;
       await Promise.all([output, errors]);
-      return processResult(result, sessionId);
+      return processResult(result, sessionId, lastDiagnostic);
     } catch (error) {
       return {
         exitCode: null,

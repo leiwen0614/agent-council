@@ -23,6 +23,26 @@ function stringAt(value: unknown, ...path: string[]): string | null {
   return typeof current === "string" ? current : null;
 }
 
+function numberAt(value: unknown, ...path: string[]): number | null {
+  let current = value;
+  for (const key of path) {
+    const parsed = objectSchema.safeParse(current);
+    if (!parsed.success) return null;
+    current = parsed.data[key];
+  }
+  return typeof current === "number" && Number.isFinite(current) ? current : null;
+}
+
+function booleanAt(value: unknown, ...path: string[]): boolean | null {
+  let current = value;
+  for (const key of path) {
+    const parsed = objectSchema.safeParse(current);
+    if (!parsed.success) return null;
+    current = parsed.data[key];
+  }
+  return typeof current === "boolean" ? current : null;
+}
+
 function diagnostic(line: string): ParsedProviderLine {
   return { type: "diagnostic", text: redactSecrets(line), raw: redactSecrets(line) };
 }
@@ -59,6 +79,16 @@ export function parseClaudeLine(line: string): ParsedProviderLine {
     const sessionId = stringAt(value, "session_id");
     return sessionId === null ? null : { type: "session", sessionId, raw };
   }
+  if (eventType === "system" && stringAt(value, "subtype") === "api_retry") {
+    const attempt = numberAt(value, "attempt");
+    const maximum = numberAt(value, "max_retries");
+    const error = stringAt(value, "error") ?? "provider API error";
+    const retry =
+      attempt === null || maximum === null
+        ? "Claude API request is being retried"
+        : `Claude API retry ${String(attempt)}/${String(maximum)}`;
+    return { type: "progress", text: `${retry}: ${error}`, raw };
+  }
   if (eventType === "stream_event" && stringAt(value, "event", "type") === "content_block_delta") {
     const text = stringAt(value, "event", "delta", "text");
     return text === null ? null : { type: "prose", text, raw };
@@ -67,6 +97,13 @@ export function parseClaudeLine(line: string): ParsedProviderLine {
   if (eventType === "assistant") return null;
   if (eventType === "result") {
     const sessionId = stringAt(value, "session_id");
+    if (booleanAt(value, "is_error") === true) {
+      return {
+        type: "diagnostic",
+        text: redactSecrets(stringAt(value, "result") ?? "Claude provider request failed."),
+        raw
+      };
+    }
     if (sessionId !== null) return { type: "session", sessionId, raw };
   }
   return null;

@@ -23,6 +23,19 @@ describe("provider JSONL parsers", () => {
     ).toMatchObject({ type: "prose", text: "delta" });
   });
 
+  it("surfaces Claude API retries and terminal result errors", () => {
+    expect(
+      parseClaudeLine(
+        '{"type":"system","subtype":"api_retry","attempt":3,"max_retries":10,"error":"server_error"}'
+      )
+    ).toMatchObject({ type: "progress", text: "Claude API retry 3/10: server_error" });
+    expect(
+      parseClaudeLine(
+        '{"type":"result","is_error":true,"result":"Unsupported effort value","session_id":"claude-1"}'
+      )
+    ).toMatchObject({ type: "diagnostic", text: "Unsupported effort value" });
+  });
+
   it("extracts Copilot deltas and result session identifiers", () => {
     expect(
       parseCopilotLine('{"type":"assistant.message_delta","data":{"deltaContent":"piece"}}')

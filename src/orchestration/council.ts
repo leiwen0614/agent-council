@@ -354,6 +354,8 @@ export class CouncilEngine {
           await this.options.repository.prepareAttempt(run, stage, provider);
           const providerState = state.providers[provider];
           providerState.status = "running";
+          panels[provider] = { status: "running", text: "" };
+          view.update(snapshot);
           const startedAt = nowIso();
           await this.options.repository.appendEvent(run, {
             sessionId: run.sessionId,
@@ -422,6 +424,9 @@ export class CouncilEngine {
           });
           if (completed) await this.options.repository.completeArtifact(run, stage, provider);
           panels[provider].status = status;
+          if (!completed && providerState.error !== undefined) {
+            panels[provider].text += `\n${providerState.error}`;
+          }
           view.update(snapshot);
           await this.options.repository.appendEvent(run, {
             sessionId: run.sessionId,

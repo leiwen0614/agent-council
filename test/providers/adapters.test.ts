@@ -112,11 +112,11 @@ describe("provider command construction", () => {
       cwd: "C:/repo",
       yolo: true,
       model: "claude-opus-4-8",
-      effort: "max",
+      effort: "xhigh",
       sessionId: "claude-session"
     });
     expect(latestArguments()).toEqual(
-      expect.arrayContaining(["--model", "claude-opus-4-8", "--effort", "max"])
+      expect.arrayContaining(["--model", "claude-opus-4-8", "--effort", "xhigh"])
     );
 
     mockedExeca.mockReturnValueOnce(fakeProcess());

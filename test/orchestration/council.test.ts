@@ -225,7 +225,7 @@ describe("CouncilEngine", () => {
       enabledProviders: config.enabledProviders,
       agents: {
         codex: { yolo: true, model: "gpt-5.6-sol", effort: "xhigh" },
-        claude: { yolo: false, model: "claude-opus-4-8", effort: "max" },
+        claude: { yolo: false, model: "claude-opus-4-8", effort: "xhigh" },
         copilot: { yolo: true, model: "gpt-5.6-sol", effort: "max" }
       }
     });
@@ -245,7 +245,7 @@ describe("CouncilEngine", () => {
     expect(adapters.codex.modelValues).toEqual(Array(3).fill("gpt-5.6-sol"));
     expect(adapters.codex.effortValues).toEqual(Array(3).fill("xhigh"));
     expect(adapters.claude.modelValues).toEqual(Array(3).fill("claude-opus-4-8"));
-    expect(adapters.claude.effortValues).toEqual(Array(3).fill("max"));
+    expect(adapters.claude.effortValues).toEqual(Array(3).fill("xhigh"));
     expect(adapters.copilot.modelValues).toEqual(Array(3).fill("gpt-5.6-sol"));
     expect(adapters.copilot.effortValues).toEqual(Array(3).fill("max"));
   });

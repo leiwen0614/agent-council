@@ -83,7 +83,7 @@ agents:
   claude:
     yolo: true
     model: claude-opus-4-8
-    effort: max
+    effort: xhigh
   copilot:
     yolo: true
     model: gpt-5.6-sol
@@ -93,6 +93,10 @@ agents:
 These values are passed on both provider start and resume and are persisted in `run.json`. YOLO
 bypasses provider permission checks and is not confined to the project directory; use it only in
 an externally isolated environment when filesystem confinement is required.
+
+Although Claude Code accepts `max`, some inference gateways route Claude through a backend whose
+maximum supported effort is `xhigh`. This repository uses `xhigh` to avoid repeated invalid-request
+retries on such installations.
 
 At preflight, Council uses every configured provider that is installed and authenticated. If one
 of three is unavailable, the run proceeds with the other two and records that effective provider

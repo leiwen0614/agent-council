@@ -11,7 +11,7 @@ agents:
   claude:
     yolo: true
     model: claude-opus-4-8
-    effort: max
+    effort: xhigh
   copilot:
     yolo: true
     model: gpt-5.6-sol
