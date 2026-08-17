@@ -1,5 +1,27 @@
-import { describe, expect, it } from "vitest";
-import { parseCouncilProviders, parseProviders } from "../../src/cli/interaction.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  parseCouncilProviders,
+  parseProviders,
+  restoreInteractiveInput
+} from "../../src/cli/interaction.js";
+
+describe("interactive input lifecycle", () => {
+  it("re-references TTY input after the live view releases it", () => {
+    const ref = vi.fn();
+
+    restoreInteractiveInput({ isTTY: true, ref });
+
+    expect(ref).toHaveBeenCalledOnce();
+  });
+
+  it("does not keep non-interactive input alive", () => {
+    const ref = vi.fn();
+
+    restoreInteractiveInput({ isTTY: false, ref });
+
+    expect(ref).not.toHaveBeenCalled();
+  });
+});
 
 describe("provider list parsing", () => {
   it("accepts unique two-or-three-provider Councils", () => {

@@ -16,6 +16,3 @@ agents:
     yolo: false
     model: null
     effort: null
-
-ui:
-  maxPanelLines: 18

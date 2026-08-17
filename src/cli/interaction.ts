@@ -7,7 +7,21 @@ export type DecisionChoice =
   | { kind: "mixed"; providers: ProviderId[]; decision: string }
   | { kind: "defer" };
 
+type RefableInput = {
+  readonly isTTY?: boolean;
+  ref(): void;
+};
+
+/**
+ * Keep interactive input referenced before handing it to Inquirer. This also
+ * repairs the handle if an earlier terminal renderer released it.
+ */
+export function restoreInteractiveInput(input: RefableInput = process.stdin): void {
+  if (input.isTTY) input.ref();
+}
+
 export async function askPrompt(): Promise<string> {
+  restoreInteractiveInput();
   const value = await editor({
     message: "Enter the Council prompt",
     waitForUserInput: false,
@@ -17,11 +31,13 @@ export async function askPrompt(): Promise<string> {
 }
 
 export async function askSessionName(): Promise<string | null> {
+  restoreInteractiveInput();
   const value = await input({ message: "Session name (optional)" });
   return value.trim().length === 0 ? null : value.trim();
 }
 
 export async function chooseSession(sessions: CouncilSession[]): Promise<CouncilSession> {
+  restoreInteractiveInput();
   return select({
     message: "Choose a Council session",
     choices: sessions.map((session) => ({
@@ -33,6 +49,7 @@ export async function chooseSession(sessions: CouncilSession[]): Promise<Council
 }
 
 export async function chooseHomeAction(hasSessions: boolean): Promise<"new" | "resume" | "doctor"> {
+  restoreInteractiveInput();
   return select({
     message: "Agent Council",
     choices: [
@@ -44,6 +61,7 @@ export async function chooseHomeAction(hasSessions: boolean): Promise<"new" | "r
 }
 
 export async function chooseRecovery(stage: Stage, canContinue: boolean): Promise<RecoveryChoice> {
+  restoreInteractiveInput();
   return select({
     message: `${stage} stage is incomplete. Choose a recovery action`,
     choices: [
@@ -57,17 +75,21 @@ export async function chooseRecovery(stage: Stage, canContinue: boolean): Promis
 }
 
 export async function chooseDecision(available: ProviderId[]): Promise<DecisionChoice> {
-  const action = await select<ProviderId | "mixed" | "defer">({
-    message: "Record the Council decision",
-    choices: [
-      ...available.map((provider) => ({
-        name: `Select ${provider} final report`,
-        value: provider
-      })),
-      { name: "Record a mixed decision", value: "mixed" },
-      { name: "Defer the decision", value: "defer" }
-    ]
-  });
+  restoreInteractiveInput();
+  const action = await select<ProviderId | "mixed" | "defer">(
+    {
+      message: "Record the Council decision",
+      choices: [
+        ...available.map((provider) => ({
+          name: `Select ${provider} final report`,
+          value: provider
+        })),
+        { name: "Record a mixed decision", value: "mixed" },
+        { name: "Defer the decision", value: "defer" }
+      ]
+    },
+    { clearPromptOnDone: true }
+  );
   if (action === "defer") return { kind: "defer" };
   if (action !== "mixed") {
     const note = await input({ message: "Decision note (optional)" });
@@ -87,6 +109,7 @@ export async function chooseDecision(available: ProviderId[]): Promise<DecisionC
 }
 
 export async function confirmRun(message: string): Promise<boolean> {
+  restoreInteractiveInput();
   return confirm({ message, default: true });
 }
 

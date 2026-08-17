@@ -30,8 +30,10 @@ contract.
 ## Requirements
 
 - Node.js 22 or newer
-- Codex CLI, authenticated with `codex login`
-- Claude Code, authenticated with `claude auth login` (optional when disabled)
+- Codex CLI, authenticated with `codex login` or configured with an authenticated custom model
+  provider
+- Claude Code, authenticated with `claude auth login` or configured with an authenticated custom
+  API provider (optional when disabled)
 - GitHub Copilot CLI, authenticated with `copilot login` or one of its supported environment
   variables (`COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`)
 
@@ -94,13 +96,13 @@ These values are passed on both provider start and resume and are persisted in `
 bypasses provider permission checks and is not confined to the project directory; use it only in
 an externally isolated environment when filesystem confinement is required.
 
-During a live stage, each agent panel has an independent scroll position. The cyan-bordered panel
-receives keyboard commands: use `Tab`, `Shift+Tab`, left/right, or `1`–`3` to select a panel;
-up/down (or `k`/`j`) to scroll one display row; `Page Up`/`Page Down` to move one viewport; `Home`
-to jump to the beginning; and `End` to resume following new output. Press `Enter` or `f` to show
-the focused panel at full width, then `Esc` to restore all panels. `ui.maxPanelLines` sets the
-visible viewport height, not a history limit. Full provider output continues to be saved under
-`.council/`, including while a panel is paused and scrolled back.
+During a live stage, each agent panel shows a terminal-height-bounded tail preview. When the stage
+finishes, Council appends one complete, immutable rendering of every agent's wrapped output to the
+terminal; side-by-side panels share the height of the longest output. Completed Initial Answer,
+Cross-Review, and Final Report renderings therefore remain in the terminal's normal scrollback.
+Full provider output is also saved under `.council/` as it streams.
+After the final snapshot is appended, Council keeps the terminal open at an interactive decision
+menu so the user can select one final report, record a mixed decision, or defer the choice.
 
 Although Claude Code accepts `max`, some inference gateways route Claude through a backend whose
 maximum supported effort is `xhigh`. This repository uses `xhigh` to avoid repeated invalid-request
@@ -109,6 +111,9 @@ retries on such installations.
 At preflight, Council uses every configured provider that is installed and authenticated. If one
 of three is unavailable, the run proceeds with the other two and records that effective provider
 set in `run.json`. If fewer than two are ready, the run is refused.
+`council doctor` displays providers side by side, with rows for readiness, CLI version,
+authentication, effective configured model, reasoning effort, permission mode, and remediation.
+The value `provider default` means that model or effort is inherited from the provider CLI.
 
 ## Development
 

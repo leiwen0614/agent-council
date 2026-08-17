@@ -117,10 +117,6 @@ export const partialCouncilConfigSchema = z
         copilot: partialCopilotProviderConfigSchema.optional()
       })
       .strict()
-      .optional(),
-    ui: z
-      .object({ maxPanelLines: z.number().int().min(3).max(200).optional() })
-      .strict()
       .optional()
   })
   .strict();
@@ -134,8 +130,7 @@ export const councilConfigSchema = z
         claude: claudeProviderConfigSchema,
         copilot: copilotProviderConfigSchema
       })
-      .strict(),
-    ui: z.object({ maxPanelLines: z.number().int().min(3).max(200) }).strict()
+      .strict()
   })
   .strict();
 

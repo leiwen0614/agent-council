@@ -55,8 +55,7 @@ function mergeConfig(base: CouncilConfig, override: PartialCouncilConfig): Counc
       codex: mergeProviderConfig(base.agents.codex, override.agents?.codex),
       claude: mergeProviderConfig(base.agents.claude, override.agents?.claude),
       copilot: mergeProviderConfig(base.agents.copilot, override.agents?.copilot)
-    },
-    ui: { maxPanelLines: override.ui?.maxPanelLines ?? base.ui.maxPanelLines }
+    }
   };
 }
 

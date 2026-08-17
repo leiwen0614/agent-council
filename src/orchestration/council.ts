@@ -21,7 +21,13 @@ import { CouncilError } from "../util/errors.js";
 import { redactSecrets } from "../util/redact.js";
 import { nowIso } from "../util/time.js";
 import { CancellationManager } from "./cancellation.js";
-import { createLiveView, type LivePanelState, type LiveSnapshot } from "../ui/live.js";
+import {
+  createLiveView,
+  writeCompleteSnapshot,
+  type LivePanelState,
+  type LiveSnapshot,
+  type LiveView
+} from "../ui/live.js";
 
 export type DoctorResult = {
   provider: ProviderId;
@@ -208,7 +214,9 @@ export class CouncilEngine {
     stage: Stage,
     buildPrompts: () => Partial<Record<ProviderId, string>>
   ): Promise<"complete" | "abandoned" | "interrupted"> {
+    let lastAttemptSnapshot: LiveSnapshot | null = null;
     for (;;) {
+      let attempt: { view: LiveView } | null = null;
       const prompts = buildPrompts();
       const eligible = this.enabledProviders.filter((provider) => prompts[provider] !== undefined);
       await this.options.repository.saveRun(run);
@@ -228,8 +236,13 @@ export class CouncilEngine {
           prompts[provider] === undefined
       );
       for (const provider of skipped) run.stages[stage].providers[provider].status = "skipped";
-      if (retryable.length > 0) await this.runStage(session, run, stage, prompts, retryable);
+      if (retryable.length > 0) {
+        const runAttempt = await this.runStage(session, run, stage, prompts, retryable);
+        lastAttemptSnapshot = runAttempt.snapshot;
+        attempt = { view: runAttempt.view };
+      }
       if (this.cancellation.cancelled) {
+        await attempt?.view.close({ preserveCompleteOutput: false });
         run.stages[stage].status = "cancelled";
         run.status = RECOVERY_STATUS[stage];
         await this.options.repository.saveRun(run);
@@ -252,12 +265,20 @@ export class CouncilEngine {
           provider: null,
           kind: hasEvidenceSkip ? "stage.partial" : "stage.completed"
         });
+        if (attempt === null) {
+          this.appendCompleteStageOutput(await this.createStageSnapshot(session, run, stage));
+        } else {
+          await attempt.view.close();
+        }
         return "complete";
       }
       run.status = RECOVERY_STATUS[stage];
       run.stages[stage].status = "partial";
       await this.options.repository.saveRun(run);
       const canContinue = this.canContinue(stage, completed.length, run);
+      // Recovery prompts cannot share stdin/stdout ownership with Ink. Clear the
+      // transient live tail, then append a complete snapshot only if continuing.
+      await attempt?.view.close({ preserveCompleteOutput: false });
       const choice = await this.options.recover(stage, canContinue);
       if (choice === "retry") continue;
       if (choice === "abandon") {
@@ -288,6 +309,27 @@ export class CouncilEngine {
         provider: null,
         kind: "stage.partial"
       });
+      const completedSnapshot = lastAttemptSnapshot;
+      const panels =
+        completedSnapshot === null
+          ? null
+          : Object.fromEntries(
+              PROVIDERS.map((provider) => [
+                provider,
+                {
+                  ...completedSnapshot.panels[provider],
+                  status: run.stages[stage].providers[provider].status
+                }
+              ])
+            );
+      this.appendCompleteStageOutput(
+        completedSnapshot === null
+          ? await this.createStageSnapshot(session, run, stage)
+          : {
+              ...completedSnapshot,
+              panels: panels as Record<ProviderId, LivePanelState>
+            }
+      );
       return "complete";
     }
   }
@@ -307,7 +349,7 @@ export class CouncilEngine {
     stage: Stage,
     prompts: Partial<Record<ProviderId, string>>,
     providers: ProviderId[]
-  ): Promise<void> {
+  ): Promise<{ snapshot: LiveSnapshot; view: LiveView }> {
     const state = run.stages[stage];
     state.status = "running";
     state.startedAt ??= nowIso();
@@ -321,26 +363,12 @@ export class CouncilEngine {
       kind: "stage.started"
     });
 
-    const panels = Object.fromEntries(
-      PROVIDERS.map((provider) => [
-        provider,
-        { status: state.providers[provider].status, text: "" }
-      ])
-    ) as Record<ProviderId, LivePanelState>;
-    const snapshot: LiveSnapshot = {
-      providers: this.enabledProviders,
-      sessionLabel: session.name ?? session.id.slice(0, 8),
-      runId: run.id,
-      stage,
-      startedAt: Date.now(),
-      panels
-    };
+    const snapshot = await this.createStageSnapshot(session, run, stage);
+    const panels = snapshot.panels;
     const view =
       this.options.live === false
-        ? { update: () => undefined, close: () => undefined }
-        : createLiveView(snapshot, this.options.config.ui.maxPanelLines, () =>
-            this.cancellation.interrupt()
-          );
+        ? { update: () => undefined, close: () => Promise.resolve() }
+        : createLiveView(snapshot);
     try {
       await Promise.all(
         providers.map(async (provider) => {
@@ -445,9 +473,42 @@ export class CouncilEngine {
           await this.options.repository.saveRun(run);
         })
       );
-    } finally {
-      view.close();
+    } catch (error) {
+      await view.close({ preserveCompleteOutput: false });
+      throw error;
     }
+    return { snapshot, view };
+  }
+
+  private async createStageSnapshot(
+    session: CouncilSession,
+    run: CouncilRun,
+    stage: Stage
+  ): Promise<LiveSnapshot> {
+    const state = run.stages[stage];
+    const panelEntries = await Promise.all(
+      PROVIDERS.map(async (provider) => {
+        const providerState = state.providers[provider];
+        const text =
+          providerState.status === "completed"
+            ? ((await this.options.repository.readArtifact(run, stage, provider)) ?? "")
+            : "";
+        return [provider, { status: providerState.status, text }] as const;
+      })
+    );
+    return {
+      providers: this.enabledProviders,
+      sessionLabel: session.name ?? session.id.slice(0, 8),
+      runId: run.id,
+      stage,
+      startedAt: state.startedAt === null ? Date.now() : Date.parse(state.startedAt),
+      panels: Object.fromEntries(panelEntries) as Record<ProviderId, LivePanelState>
+    };
+  }
+
+  private appendCompleteStageOutput(snapshot: LiveSnapshot): void {
+    if (this.options.live === false || !process.stdout.isTTY) return;
+    writeCompleteSnapshot(process.stdout, snapshot, process.stdout.columns || 80);
   }
 
   private async consumeEvents(

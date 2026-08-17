@@ -1,17 +1,44 @@
 import { describe, expect, it } from "vitest";
+import React from "react";
+import { renderToString } from "ink";
+import { PassThrough } from "node:stream";
 import type { LiveSnapshot } from "../../src/ui/live.js";
 import {
-  applyPanelScroll,
+  CouncilSnapshotView,
   cloneLiveSnapshot,
-  derivePanelViewport,
-  focusIndexForNumber,
-  formatViewportStatus,
-  moveFocusIndex,
+  commonPanelOutputHeight,
+  createLiveView,
+  livePreviewHeightUpperBound,
+  livePreviewRows,
   outputDisplayRows,
   panelContentWidth,
-  updatePanelScrollStates,
-  visibleProviders
+  writeCompleteSnapshot
 } from "../../src/ui/live.js";
+
+function renderLive(snapshot: LiveSnapshot, columns: number): string {
+  return renderToString(
+    React.createElement(CouncilSnapshotView, {
+      snapshot,
+      terminalColumns: columns
+    }),
+    { columns }
+  );
+}
+
+function panelSnapshot(claudeText: string, copilotText: string): LiveSnapshot {
+  return {
+    providers: ["claude", "copilot"],
+    sessionLabel: "test",
+    runId: "run",
+    stage: "initial",
+    startedAt: 0,
+    panels: {
+      codex: { status: "skipped", text: "" },
+      claude: { status: "completed", text: claudeText },
+      copilot: { status: "running", text: copilotText }
+    }
+  };
+}
 
 describe("live snapshot updates", () => {
   it("copies mutable panel state so React receives a new snapshot", () => {
@@ -37,105 +64,22 @@ describe("live snapshot updates", () => {
   });
 });
 
-describe("live panel viewport", () => {
-  const rows = Array.from({ length: 10 }, (_, index) => `line ${String(index + 1)}`);
+describe("live panel output", () => {
+  it("retains every wrapped output row without truncation", () => {
+    const text = Array.from({ length: 10 }, (_, index) => `line ${String(index + 1)}`).join("\n");
 
-  it("initially follows the latest output rows", () => {
-    const viewport = derivePanelViewport(rows, 4, { startLine: 0, following: true });
-
-    expect(viewport.rows).toEqual(["line 7", "line 8", "line 9", "line 10"]);
-    expect(viewport.startLine).toBe(6);
-    expect(formatViewportStatus(viewport)).toBe("lines 7–10/10 · LIVE");
-  });
-
-  it("scrolls by a line and a page", () => {
-    const oneLine = applyPanelScroll({ startLine: 0, following: true }, "line-up", rows.length, 4);
-    const onePage = applyPanelScroll(oneLine, "page-up", rows.length, 4);
-
-    expect(oneLine).toEqual({ startLine: 5, following: false });
-    expect(onePage).toEqual({ startLine: 1, following: false });
-  });
-
-  it("clamps at both bounds and supports Home and End", () => {
-    const home = applyPanelScroll({ startLine: 0, following: true }, "home", rows.length, 4);
-    const pastTop = applyPanelScroll(home, "page-up", rows.length, 4);
-    const end = applyPanelScroll(pastTop, "end", rows.length, 4);
-
-    expect(pastTop).toEqual({ startLine: 0, following: false });
-    expect(end).toEqual({ startLine: 6, following: true });
-  });
-
-  it("scrolls down while paused without implicitly resuming live following", () => {
-    const oneLine = applyPanelScroll(
-      { startLine: 2, following: false },
-      "line-down",
-      rows.length,
-      4
+    expect(outputDisplayRows(text, 20)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `line ${String(index + 1)}`)
     );
-    const atBottom = applyPanelScroll(oneLine, "page-down", rows.length, 4);
-    const pastBottom = applyPanelScroll(atBottom, "line-down", rows.length, 4);
-
-    expect(oneLine).toEqual({ startLine: 3, following: false });
-    expect(atBottom).toEqual({ startLine: 6, following: false });
-    expect(pastBottom).toEqual({ startLine: 6, following: false });
-  });
-
-  it("keeps a scrolled viewport stable when output is appended", () => {
-    const state = { startLine: 2, following: false };
-
-    expect(derivePanelViewport(rows, 4, state).rows).toEqual([
-      "line 3",
-      "line 4",
-      "line 5",
-      "line 6"
-    ]);
-    expect(derivePanelViewport([...rows, "line 11"], 4, state).rows).toEqual([
-      "line 3",
-      "line 4",
-      "line 5",
-      "line 6"
-    ]);
-  });
-
-  it("maintains independent scroll state for each provider", () => {
-    const claudeScrolled = updatePanelScrollStates({}, "claude", "page-up", rows.length, 4);
-    const copilotScrolled = updatePanelScrollStates(
-      claudeScrolled,
-      "copilot",
-      "line-up",
-      rows.length,
-      4
-    );
-
-    expect(copilotScrolled.claude).toEqual({ startLine: 2, following: false });
-    expect(copilotScrolled.copilot).toEqual({ startLine: 5, following: false });
-    expect(copilotScrolled.codex).toBeUndefined();
-  });
-
-  it("advances a following viewport when output is appended", () => {
-    const state = { startLine: 0, following: true };
-
-    expect(derivePanelViewport(rows, 4, state).rows.at(-1)).toBe("line 10");
-    expect(derivePanelViewport([...rows, "line 11"], 4, state).rows.at(-1)).toBe("line 11");
   });
 
   it("hard-wraps long logical lines without dropping empty lines", () => {
     expect(outputDisplayRows("abcdefghij\n\nxy", 4)).toEqual(["abcd", "efgh", "ij", "", "xy"]);
   });
 
-  it("reflows display rows when panel width changes", () => {
+  it("reflows complete display rows when panel width changes", () => {
     expect(outputDisplayRows("abcdefghijkl", 6)).toEqual(["abcdef", "ghijkl"]);
     expect(outputDisplayRows("abcdefghijkl", 4)).toEqual(["abcd", "efgh", "ijkl"]);
-  });
-
-  it("clamps a paused viewport after wrapping produces fewer rows", () => {
-    const state = { startLine: 4, following: false };
-    const narrowRows = outputDisplayRows("abcdefghijklmnopqrstuvwx", 4);
-    const wideRows = outputDisplayRows("abcdefghijklmnopqrstuvwx", 8);
-
-    expect(derivePanelViewport(narrowRows, 2, state).startLine).toBe(4);
-    expect(derivePanelViewport(wideRows, 2, state).startLine).toBe(1);
-    expect(derivePanelViewport(wideRows, 2, state).rows).toEqual(["ijklmnop", "qrstuvwx"]);
   });
 
   it("normalizes CRLF while preserving internal blank rows", () => {
@@ -158,39 +102,137 @@ describe("live panel viewport", () => {
     expect(outputDisplayRows(" \r\n", 10)).toEqual(["Waiting for output…"]);
   });
 
-  it("formats an empty viewport without inventing a line range", () => {
-    expect(
-      formatViewportStatus(derivePanelViewport([], 4, { startLine: 0, following: true }))
-    ).toBe("lines 0–0/0 · LIVE");
+  it("uses the longest complete output height for horizontal panels", () => {
+    const rows = [["one", "two"], ["one", "two", "three", "four"], ["one"]];
+
+    expect(commonPanelOutputHeight(rows, true)).toBe(4);
+  });
+
+  it("does not impose a common output height on stacked panels", () => {
+    expect(commonPanelOutputHeight([["one"], ["one", "two", "three"]], false)).toBeUndefined();
+  });
+
+  it("handles an empty horizontal provider set safely", () => {
+    expect(commonPanelOutputHeight([], true)).toBe(0);
   });
 
   it("calculates content width for horizontal and stacked panels", () => {
     expect(panelContentWidth(120, 3, true)).toBe(35);
     expect(panelContentWidth(80, 3, false)).toBe(76);
   });
-});
 
-describe("live panel focus and expansion", () => {
-  const providers = ["codex", "claude", "copilot"] as const;
-
-  it("cycles focus in both directions", () => {
-    expect(moveFocusIndex(0, providers.length, "previous")).toBe(2);
-    expect(moveFocusIndex(2, providers.length, "next")).toBe(0);
-    expect(moveFocusIndex(0, 2, "next")).toBe(1);
-    expect(moveFocusIndex(1, 2, "next")).toBe(0);
-    expect(moveFocusIndex(0, 2, "previous")).toBe(1);
+  it("bounds the live preview below the physical terminal height", () => {
+    expect(livePreviewRows(30, 2, true)).toBe(20);
+    expect(livePreviewRows(20, 2, false)).toBe(2);
+    expect(livePreviewRows(10, 3, false)).toBe(0);
+    expect(livePreviewHeightUpperBound(30, 2, true)).toBeLessThan(30);
+    expect(livePreviewHeightUpperBound(20, 2, false)).toBeLessThan(20);
+    expect(livePreviewHeightUpperBound(10, 3, false)).toBeLessThan(10);
   });
 
-  it("maps only available number keys to a provider", () => {
-    expect(focusIndexForNumber("1", 2)).toBe(0);
-    expect(focusIndexForNumber("2", 2)).toBe(1);
-    expect(focusIndexForNumber("3", 2)).toBeNull();
-    expect(focusIndexForNumber("x", 3)).toBeNull();
+  it("renders every horizontal row and aligns shorter panel borders", () => {
+    const snapshot = panelSnapshot("short", "long 1\nlong 2\nlong 3");
+    const output = renderLive(snapshot, 120);
+    const lines = output.split("\n");
+
+    expect(output).toContain("short");
+    expect(output).toContain("long 1");
+    expect(output).toContain("long 2");
+    expect(output).toContain("long 3");
+    const panelBottomRows = lines.filter((line) => line.startsWith("╰"));
+    expect(panelBottomRows).toHaveLength(1);
+    expect(panelBottomRows[0]?.match(/╰/g)).toHaveLength(2);
   });
 
-  it("shows every provider normally and only the focused provider when expanded", () => {
-    expect(visibleProviders(providers, 1, false)).toEqual(providers);
-    expect(visibleProviders(providers, 1, true)).toEqual(["claude"]);
-    expect(visibleProviders(["claude", "copilot"], 20, true)).toEqual(["copilot"]);
+  it("renders stacked panels at their natural complete heights", () => {
+    const snapshot = panelSnapshot("short", "long 1\nlong 2\nlong 3");
+    const output = renderLive(snapshot, 80);
+
+    expect(output).toContain("short");
+    expect(output).toContain("long 1");
+    expect(output).toContain("long 2");
+    expect(output).toContain("long 3");
+    expect(output.split("\n").filter((line) => line.startsWith("╰"))).toHaveLength(2);
+  });
+
+  it("shows the waiting message in an empty provider panel", () => {
+    expect(renderLive(panelSnapshot("", "working"), 120)).toContain("Waiting for output…");
+  });
+
+  it("writes a complete immutable stage snapshot without terminal-clear escapes", () => {
+    let written = "";
+    const snapshot = panelSnapshot("short", "long 1\nlong 2\nlong 3");
+
+    writeCompleteSnapshot(
+      {
+        write(chunk: string | Uint8Array) {
+          written += String(chunk);
+          return true;
+        }
+      },
+      snapshot,
+      120
+    );
+
+    expect(written).toContain("short");
+    expect(written).toContain("long 3");
+    expect(written).not.toContain("\u001B[2J");
+    expect(written).not.toContain("\u001B[3J");
+  });
+
+  it("keeps the complete stage in history without Ink's erase-scrollback sequence", async () => {
+    const output = new PassThrough() as PassThrough & {
+      isTTY: boolean;
+      columns: number;
+      rows: number;
+    };
+    output.isTTY = true;
+    output.columns = 120;
+    output.rows = 30;
+    let written = "";
+    output.on("data", (chunk) => {
+      written += String(chunk);
+    });
+    const finalText = Array.from({ length: 60 }, (_, index) => `line ${String(index + 1)}`).join(
+      "\n"
+    );
+    const initial = panelSnapshot("", "");
+    const completed = panelSnapshot("short", finalText);
+    completed.panels.copilot.status = "completed";
+
+    const view = createLiveView(initial, { stdout: output as unknown as NodeJS.WriteStream });
+    view.update(completed);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await view.close();
+    await new Promise<void>((resolve) => output.write("", () => resolve()));
+
+    expect(written).toContain("line 60");
+    expect(written).not.toContain("\u001B[3J");
+  });
+
+  it("clears the transient live frame when a stage attempt enters recovery", async () => {
+    const output = new PassThrough() as PassThrough & {
+      isTTY: boolean;
+      columns: number;
+      rows: number;
+    };
+    output.isTTY = true;
+    output.columns = 120;
+    output.rows = 30;
+    let written = "";
+    output.on("data", (chunk) => {
+      written += String(chunk);
+    });
+
+    const view = createLiveView(panelSnapshot("", ""), {
+      stdout: output as unknown as NodeJS.WriteStream
+    });
+    view.update(panelSnapshot("partial Claude", "partial Copilot"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await view.close({ preserveCompleteOutput: false });
+
+    expect(written).toContain("\u001B[2K");
+    expect(written.slice(written.indexOf("\u001B[2K"))).not.toContain("partial Copilot");
+    expect(written).not.toContain("Complete stage output · Also saved under .council/.");
   });
 });

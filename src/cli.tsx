@@ -9,6 +9,7 @@ import { findProjectRoot } from "./storage/project.js";
 import { CouncilRepository } from "./storage/repository.js";
 import { CouncilError, errorMessage } from "./util/errors.js";
 import { nowIso } from "./util/time.js";
+import { renderDoctorTable } from "./cli/doctor.js";
 import {
   askPrompt,
   askSessionName,
@@ -170,20 +171,10 @@ async function interactiveHome(): Promise<void> {
 async function doctorCommand(): Promise<void> {
   const { config } = await context();
   const diagnostics = await runDoctor(undefined, config.enabledProviders);
-  let readyCount = 0;
-  for (const provider of PROVIDERS.filter((item) => !config.enabledProviders.includes(item))) {
-    console.log(`- ${provider}: disabled`);
-  }
-  for (const result of diagnostics) {
-    const ready = result.installed.ok && result.authenticated.ok;
-    if (ready) readyCount += 1;
-    console.log(
-      `${ready ? "✓" : "✗"} ${result.provider}: ${result.installed.version ?? result.installed.summary}`
-    );
-    console.log(`  ${result.authenticated.summary}`);
-    if (!ready && result.authenticated.remediation)
-      console.log(`  ${result.authenticated.remediation}`);
-  }
+  console.log(renderDoctorTable(config, diagnostics, process.stdout.columns || 120));
+  const readyCount = diagnostics.filter(
+    (result) => result.installed.ok && result.authenticated.ok
+  ).length;
   if (readyCount < 2) process.exitCode = 1;
 }
 
@@ -215,7 +206,7 @@ addRunOptions(
 ).action(resumeCommand);
 program
   .command("doctor")
-  .description("check provider installation and authentication")
+  .description("check provider installation, authentication, model, and effort")
   .action(doctorCommand);
 program
   .command("sessions")

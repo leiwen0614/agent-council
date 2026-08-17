@@ -36,12 +36,22 @@ The drawing communicates the product experience, not fixed terminal dimensions. 
 
 - All effective providers start concurrently at each reasoning stage.
 - Each provider has a distinct panel with its identity, status, and current output.
+- While a stage runs, each panel shows a terminal-height-bounded tail preview so live redraws never
+  erase native terminal scrollback.
+- When a stage finishes, the UI appends one complete immutable rendering of every provider's
+  wrapped output to terminal history.
+- Side-by-side panels share the display height required by the longest provider output; shorter
+  panels are padded so their bottom borders remain aligned.
+- The terminal's native scrollback is the single scroll mechanism for completed stage output.
 - A provider that completes early remains visible while the other providers continue.
 - One provider failing must not stop or erase the work of the others.
 - Initial Answer, Cross-Review, and Final Report use the same peer-provider presentation model.
-- On narrow terminals, panels may stack vertically or become selectable tabs, but execution remains concurrent.
+- On narrow terminals, panels may stack vertically; the live preview remains bounded and the
+  complete stage snapshot remains available in terminal history. Execution remains concurrent.
 - The UI renders normalized events; it must not own orchestration or persistence logic.
 - Output shown in the terminal is saved at the same time. There is no display-only execution mode in the normal workflow.
+- After final-report output is appended, the terminal remains interactive until the user explicitly
+  selects a report, records a mixed decision, or defers the decision.
 
 Suggested provider statuses are `Waiting`, `Running`, `Completed`, `Failed`, and `Cancelled`. The stage header should show the current stage, elapsed run time, and enough session/run identity to find the saved artifacts.
 

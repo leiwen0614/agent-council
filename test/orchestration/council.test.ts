@@ -20,8 +20,7 @@ const config: CouncilConfig = {
     codex: { yolo: false, model: null, effort: null },
     claude: { yolo: false, model: null, effort: null },
     copilot: { yolo: false, model: null, effort: null }
-  },
-  ui: { maxPanelLines: 5 }
+  }
 };
 
 function processFrom(provider: ProviderId, prompt: string, success = true): AgentProcess {
@@ -48,6 +47,44 @@ function processFrom(provider: ProviderId, prompt: string, success = true): Agen
     events: events(),
     completion: Promise.resolve(result),
     cancel: () => Promise.resolve()
+  };
+}
+
+function deferredProcess(
+  provider: ProviderId,
+  prompt: string
+): {
+  process: AgentProcess;
+  finish(): void;
+} {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const sessionId = `${provider}-session`;
+  async function* events(): AsyncGenerator<AgentEvent> {
+    yield { type: "session", sessionId, raw: "session" };
+    await gate;
+    yield {
+      type: "prose",
+      text: `${provider} response to ${prompt.slice(0, 24)}`,
+      raw: "prose"
+    };
+  }
+  return {
+    process: {
+      pid: undefined,
+      events: events(),
+      completion: gate.then(() => ({
+        exitCode: 0,
+        signal: null,
+        cancelled: false,
+        sessionId,
+        error: null
+      })),
+      cancel: () => Promise.resolve()
+    },
+    finish: release
   };
 }
 
@@ -216,7 +253,57 @@ describe("CouncilEngine", () => {
     expect(choices).toEqual(["retry"]);
     expect(run.stages.initial.providers.codex.attempts).toHaveLength(2);
     expect(run.stages.initial.providers.claude.attempts).toHaveLength(1);
+    const initialEvents = (await repository.readEvents(run)).filter(
+      (event) => event.stage === "initial"
+    );
+    expect(initialEvents.filter((event) => event.kind === "stage.started")).toHaveLength(2);
+    expect(initialEvents.filter((event) => event.kind === "stage.completed")).toHaveLength(1);
+    expect(initialEvents.at(-1)?.kind).toBe("stage.completed");
     expect(run.status).toBe("awaiting_decision");
+  });
+
+  it("records stage.started before any provider can complete", async () => {
+    const { repository, session, adapters } = await fixture();
+    const pending = {
+      codex: deferredProcess("codex", "event order"),
+      claude: deferredProcess("claude", "event order"),
+      copilot: deferredProcess("copilot", "event order")
+    };
+    for (const provider of ["codex", "claude", "copilot"] as const) {
+      adapters[provider].start = () => pending[provider].process;
+    }
+    const engine = new CouncilEngine({
+      repository,
+      config,
+      adapters,
+      live: false,
+      recover: () => Promise.resolve("abandon")
+    });
+
+    const execution = engine.start(session, "Event order test.");
+    let run: Awaited<ReturnType<CouncilRepository["latestRun"]>> = null;
+    await expect
+      .poll(async () => {
+        run = await repository.latestRun(session.id);
+        return run;
+      })
+      .not.toBeNull();
+    expect(run).not.toBeNull();
+    await expect
+      .poll(async () => {
+        const current = run;
+        return current === null ? [] : await repository.readEvents(current);
+      })
+      .toSatisfy((events: Awaited<ReturnType<CouncilRepository["readEvents"]>>) =>
+        events.some((event) => event.kind === "stage.started")
+      );
+    run = await repository.latestRun(session.id);
+    const firstEvents = run === null ? [] : await repository.readEvents(run);
+    expect(firstEvents[0]).toMatchObject({ stage: "initial", kind: "stage.started" });
+    expect(firstEvents.some((event) => event.kind === "provider.completed")).toBe(false);
+
+    for (const item of Object.values(pending)) item.finish();
+    await execution;
   });
 
   it("resumes with the persisted per-provider permission settings", async () => {
