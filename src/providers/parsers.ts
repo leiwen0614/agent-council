@@ -65,7 +65,7 @@ export function parseCodexLine(line: string): ParsedProviderLine {
   }
   if (eventType === "item.started" || eventType === "item.completed") {
     const text = stringAt(value, "item", "type");
-    return text === null ? null : { type: "progress", text, raw };
+    return text === null ? null : { type: "progress", text, raw, visible: false };
   }
   return null;
 }
@@ -123,7 +123,7 @@ export function parseCopilotLine(line: string): ParsedProviderLine {
     return sessionId === null ? diagnostic(line) : { type: "session", sessionId, raw };
   }
   if (eventType === "tool.execution_start" || eventType === "assistant.reasoning_delta") {
-    return { type: "progress", text: eventType, raw };
+    return { type: "progress", text: eventType, raw, visible: false };
   }
   return null;
 }

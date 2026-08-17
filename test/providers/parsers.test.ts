@@ -12,6 +12,12 @@ describe("provider JSONL parsers", () => {
     ).toMatchObject({ type: "prose", text: "answer" });
   });
 
+  it("marks Codex command lifecycle events as hidden progress", () => {
+    expect(
+      parseCodexLine('{"type":"item.started","item":{"type":"command_execution"}}')
+    ).toMatchObject({ type: "progress", text: "command_execution", visible: false });
+  });
+
   it("extracts Claude stream deltas and session identifiers", () => {
     expect(
       parseClaudeLine('{"type":"system","subtype":"init","session_id":"claude-1"}')
@@ -43,6 +49,19 @@ describe("provider JSONL parsers", () => {
     expect(
       parseCopilotLine('{"type":"result","sessionId":"copilot-1","exitCode":0}')
     ).toMatchObject({ type: "session", sessionId: "copilot-1" });
+  });
+
+  it("marks Copilot tool and reasoning lifecycle events as hidden progress", () => {
+    expect(parseCopilotLine('{"type":"tool.execution_start","data":{}}')).toMatchObject({
+      type: "progress",
+      text: "tool.execution_start",
+      visible: false
+    });
+    expect(parseCopilotLine('{"type":"assistant.reasoning_delta","data":{}}')).toMatchObject({
+      type: "progress",
+      text: "assistant.reasoning_delta",
+      visible: false
+    });
   });
 
   it("treats malformed external output as a redacted diagnostic", () => {

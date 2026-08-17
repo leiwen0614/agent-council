@@ -542,7 +542,7 @@ export class CouncilEngine {
         });
       } else if (event.type === "progress") {
         const text = redactSecrets(event.text);
-        panels[provider].text += `\n${text}`;
+        if (event.visible !== false) panels[provider].text += `\n${text}`;
         await this.options.repository.appendEvent(run, {
           sessionId: session.id,
           runId: run.id,

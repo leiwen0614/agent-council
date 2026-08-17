@@ -16,7 +16,7 @@ export type ResumeOptions = StartOptions & {
 export type AgentEvent =
   | { type: "session"; sessionId: string; raw: string }
   | { type: "prose"; text: string; raw: string }
-  | { type: "progress"; text: string; raw: string }
+  | { type: "progress"; text: string; raw: string; visible?: boolean }
   | { type: "diagnostic"; text: string; raw: string };
 
 export type AgentProcessResult = {
