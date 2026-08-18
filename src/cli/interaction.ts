@@ -1,4 +1,4 @@
-import { checkbox, confirm, editor, input, select } from "@inquirer/prompts";
+import { checkbox, confirm, input, select } from "@inquirer/prompts";
 import { PROVIDERS, type CouncilSession, type ProviderId, type Stage } from "../core/types.js";
 
 export type RecoveryChoice = "retry" | "continue" | "abandon";
@@ -22,9 +22,8 @@ export function restoreInteractiveInput(input: RefableInput = process.stdin): vo
 
 export async function askPrompt(): Promise<string> {
   restoreInteractiveInput();
-  const value = await editor({
+  const value = await input({
     message: "Enter the Council prompt",
-    waitForUserInput: false,
     validate: (answer) => answer.trim().length > 0 || "The prompt cannot be empty."
   });
   return value;
@@ -100,9 +99,8 @@ export async function chooseDecision(available: ProviderId[]): Promise<DecisionC
     choices: available.map((provider) => ({ name: provider, value: provider })),
     required: true
   });
-  const decision = await editor({
+  const decision = await input({
     message: "Describe the mixed decision",
-    waitForUserInput: false,
     validate: (answer) => answer.trim().length > 0 || "A mixed decision cannot be empty."
   });
   return { kind: "mixed", providers, decision: decision.trim() };

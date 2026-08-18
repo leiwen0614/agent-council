@@ -63,6 +63,10 @@ Prompts can also be read from `--prompt-file` or standard input. Permission bypa
 provider, for example `--yolo codex --yolo claude`; safe mode is the default. There is no default
 Council or per-provider timeout.
 
+In the interactive flow, type the Council prompt directly into the terminal and press Enter. Council
+saves it verbatim as plain text in the run's `.council/.../prompt.md`; it never launches an external
+editor. For a multiline prompt, use `--prompt-file` or pipe standard input.
+
 Provider enablement is configured in `council.config.yaml` or overridden for one run with
 `--providers codex,copilot`. At least two providers are required:
 
