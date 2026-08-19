@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Box, Text, render, renderToString, useStdout, type Instance } from "ink";
+import {
+  Box,
+  Text,
+  render,
+  renderToString,
+  useStdout,
+  type Instance,
+  type RenderOptions
+} from "ink";
 import wrapAnsi from "wrap-ansi";
 import type { ProviderId, ProviderStatus, Stage } from "../core/types.js";
 
@@ -38,6 +46,13 @@ const HORIZONTAL_MINIMUM_COLUMNS = 100;
 const PANEL_CHROME_COLUMNS = 4; // Two border and two horizontal-padding columns.
 const WAITING_TEXT = "Waiting for output…";
 const DEFAULT_TERMINAL_ROWS = 24;
+
+export const LIVE_RENDER_OPTIONS = {
+  exitOnCtrlC: false,
+  incrementalRendering: false,
+  maxFps: 30,
+  patchConsole: false
+} satisfies Omit<RenderOptions, "stdout">;
 
 function elapsed(startedAt: number): string {
   const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
@@ -275,10 +290,7 @@ export function createLiveView(
     <CouncilLiveApp initial={latest} subscribe={subscribe} />,
     {
       stdout: streams.stdout,
-      exitOnCtrlC: false,
-      incrementalRendering: true,
-      maxFps: 0,
-      patchConsole: false
+      ...LIVE_RENDER_OPTIONS
     }
   );
   return {
@@ -289,9 +301,9 @@ export function createLiveView(
     async close(options) {
       if (instance === null) return;
       const closingInstance = instance;
-      // Remove the transient live frame before either appending the immutable
-      // snapshot or returning control to a recovery prompt. Unmount alone keeps
-      // Ink's last frame in terminal history.
+      // Replace the app before clearing so Ink cannot flush a throttled, stale
+      // live frame during unmount. Unmount alone keeps its last frame in history.
+      closingInstance.rerender(<></>);
       closingInstance.clear();
       closingInstance.unmount();
       instance = null;

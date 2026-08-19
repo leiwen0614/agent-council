@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 import type { LiveSnapshot } from "../../src/ui/live.js";
 import {
   CouncilSnapshotView,
+  LIVE_RENDER_OPTIONS,
   cloneLiveSnapshot,
   commonPanelOutputHeight,
   createLiveView,
@@ -41,6 +42,11 @@ function panelSnapshot(claudeText: string, copilotText: string): LiveSnapshot {
 }
 
 describe("live snapshot updates", () => {
+  it("uses bounded full-frame redraws for stable terminal output", () => {
+    expect(LIVE_RENDER_OPTIONS.incrementalRendering).toBe(false);
+    expect(LIVE_RENDER_OPTIONS.maxFps).toBe(30);
+  });
+
   it("copies mutable panel state so React receives a new snapshot", () => {
     const source: LiveSnapshot = {
       providers: ["claude", "copilot"],
