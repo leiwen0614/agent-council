@@ -83,6 +83,22 @@ export class CouncilPaths {
     return join(this.runRoot(sessionId, runId), "diagnostics", `${stage}-${provider}.jsonl`);
   }
 
+  evaluationPrompt(sessionId: string, runId: string, evaluator: ProviderId): string {
+    return join(this.runRoot(sessionId, runId), "prompts", "evaluation", `${evaluator}.md`);
+  }
+
+  blindEvaluation(sessionId: string, runId: string, evaluator: ProviderId): string {
+    return join(this.runRoot(sessionId, runId), "evaluations", `${evaluator}.blind.json`);
+  }
+
+  resolvedEvaluation(sessionId: string, runId: string, evaluator: ProviderId): string {
+    return join(this.runRoot(sessionId, runId), "evaluations", `${evaluator}.json`);
+  }
+
+  evaluationDiagnostic(sessionId: string, runId: string, evaluator: ProviderId): string {
+    return join(this.runRoot(sessionId, runId), "diagnostics", `evaluation-${evaluator}.jsonl`);
+  }
+
   projectRelative(path: string): string {
     return relative(this.projectRoot, path).split("\\").join("/");
   }

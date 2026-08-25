@@ -10,7 +10,7 @@ The product accepts a user prompt once and coordinates two or three equal provid
 2. anonymous cross-reviews from every effective provider; and
 3. revised final reports from every effective provider.
 
-Agent Council itself performs deterministic coordination only. It does not act as a fourth model, synthesize an authoritative answer, rank the providers, or select a winner. The user chooses one final report or records a mixed decision.
+Agent Council itself performs deterministic coordination only. It does not act as a fourth model, synthesize an authoritative answer, or select a winner. An optional post-run blind evaluation may display scores authored by a clearly named provider; Council performs only transparent anonymization, validation, arithmetic, reveal, timing, persistence, and rendering. It never creates a hidden or Council-authored quality judgment. The user chooses one final report or records a mixed decision.
 
 This document describes the intended product behavior and user experience. The non-negotiable requirements in the repository root [`AGENTS.md`](../AGENTS.md) are authoritative if the documents ever conflict.
 
@@ -92,6 +92,8 @@ flowchart TD
     F3 --> FP
 
     FP --> U["User Selects One Report or Records a Mixed Decision"]
+    FP -. "Optional post-run command" .-> BE["Named Provider Blind Evaluation"]
+    BE --> BR["Lock Scores, Reveal Identities, and Display Provider Judgment"]
     U --> D["decision.json"]
     U -. "Explicit request only" .-> FM["Optional final.md"]
 ```
@@ -138,7 +140,48 @@ Every final report must include:
 - unresolved facts, assumptions, and risks; and
 - its final recommendation.
 
-The normal result contains one peer final report per effective provider. Council must not automatically merge them, score them, name a chair, or describe one as authoritative.
+The normal result contains one peer final report per effective provider. Council must not automatically merge them, assign its own scores, name a chair, or describe one as authoritative. Explicit provider-authored scoring is available only through the separate post-run blind-evaluation command below.
+
+## Post-Run Blind Evaluation
+
+`council blind-eval [session] --by <codex|claude|copilot|all> [--run <run-id>]` is an optional
+comparison tool, not a fourth reasoning stage. It accepts only complete, non-degraded runs in
+`awaiting_decision` or `completed` state where every effective provider has non-empty artifacts and
+a valid review mapping for all three stages. With no selector it resolves the newest eligible run
+across the current project's sessions.
+
+The evaluator identity is always visible. Candidate identities are hidden while scoring under an
+independently randomized Candidate A/B/C mapping for each evaluator. A selected provider evaluates
+every complete candidate bundle, including its own anonymous work when it participated in the run.
+`--by all` means the run's effective providers and launches their independent evaluations
+concurrently. One evaluator's failure does not cancel another, and partial results are labeled
+incomplete rather than consensus.
+
+Every evaluation starts a fresh provider session in safe mode from a unique isolated temporary
+directory. It never resumes or updates the Council Session's provider-session mapping. The package
+contains the original prompt and equivalent anonymous evidence for each candidate: Initial Answer,
+reviews written, feedback received, and Final Report. Existing reviewer-specific Answer A/B labels
+are resolved through the persisted review mappings and accompanied by Candidate-ID legends;
+provider-authored prose stays verbatim. Candidate text is delimited as untrusted evidence. The
+evaluator does not receive provider names, Self/Peer relationships, models, effort levels, session
+IDs, provider-named paths, or execution timing. Blindness remains best-effort because writing style
+or explicit self-identification in the preserved prose may leak identity.
+
+The named provider scores seven dimensions from 0.0 through 10.0: Correctness (30%), Task
+Fulfillment (15%), Evidence Quality (15%), Reasoning Rigor (15%), Critique Quality (10%), Synthesis
+and Improvement (10%), and Clarity and Actionability (5%). Council validates the strict structured
+response and deterministically calculates the 0–100 weighted total. A qualifying critical error
+transparently caps the displayed score at 59.0. Response time, token count, model, provider identity,
+and response length never affect a score.
+
+The blind score bytes are atomically persisted before the private mapping is applied. Only after
+that durable lock may Council create the resolved record, label Self and Peer relationships, attach
+Stage 1/2/3 and total execution durations, and render the result. For `--by all`, no new mapping is
+revealed while another active evaluator is still scoring. The aggregate shows Self Score, peer-only
+average, Self–Peer gap, and peer rank; it never produces a hidden blended Council score.
+
+The output contains no strengths, weaknesses, recommendation, winner, or Council synthesis. It
+does not modify `decision.json` or create `final.md`; the human remains the final authority.
 
 ## User Decision
 
@@ -205,6 +248,12 @@ A Council Session is a durable multi-turn conversation. A Council Run is one pro
             |  |- codex.md
             |  |- claude.md
             |  `- copilot.md
+            |- evaluations/
+            |  |- codex.blind.json
+            |  |- codex.json
+            |  `- ...
+            |- prompts/evaluation/
+            |  `- <evaluator>.md
             `- decision.json
 ```
 
@@ -254,6 +303,6 @@ translated only inside adapters and never broaden or alter another provider.
 
 ## MVP Boundary
 
-The MVP ends after the user records a selected or mixed decision. It includes provider diagnostics, Council session creation/resume, the three reasoning stages, live streaming, durable artifacts, cancellation, partial-run recovery, and the user decision.
+The MVP's core workflow ends after the user records a selected or mixed decision. It includes provider diagnostics, Council session creation/resume, the three reasoning stages, live streaming, durable artifacts, cancellation, partial-run recovery, the user decision, and an optional post-run blind evaluation that leaves that decision untouched.
 
-Automatic code implementation, multi-worktree execution, a desktop application, cloud sync, hosted accounts, hidden provider scoring, and Council-authored synthesis are outside the MVP unless the user explicitly changes the scope.
+Automatic code implementation, multi-worktree execution, a desktop application, cloud sync, hosted accounts, hidden or Council-authored provider scoring, and Council-authored synthesis are outside the MVP unless the user explicitly changes the scope. Explicit scores from a named provider through `blind-eval` are the sole scoring exception.
