@@ -374,15 +374,12 @@ export function renderBlindEvaluation(
       `Agent Council — Blind Evaluation by ${evaluator}`,
       [
         ["Session", sessionLabel],
-        ["Run", result.runId],
-        ["Evaluator", `${evaluator.toUpperCase()} · visible`],
-        ["Candidates", "Anonymous during scoring"],
-        ["Candidate Mapping", "Randomized for this evaluator"],
-        ["Execution Time", "Withheld from evaluator"],
+        ["Candidates & Mapping", "Anonymous during scoring · randomized for this evaluator"],
         ["Reveal Policy", "Identities revealed only after scores were locked"],
-        ["Blind Scores", "✓ Blind scores validated"],
-        ["Score Lock", "✓ Scores locked"],
-        ["Identity Reveal", "✓ Candidate identities revealed"]
+        [
+          "Evaluation Status",
+          "✓ Blind scores validated · ✓ Scores locked · ✓ Candidate identities revealed"
+        ]
       ],
       width
     ),
