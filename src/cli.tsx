@@ -9,6 +9,8 @@ import { BlindEvaluationEngine, type EvaluationSelector } from "./orchestration/
 import { aggregatePeerScores } from "./core/evaluation-scoring.js";
 import {
   renderBlindEvaluation,
+  renderEvaluationFailures,
+  renderEvaluationStart,
   renderEvaluationTiming,
   renderPeerScoreSummary
 } from "./ui/evaluation.js";
@@ -198,13 +200,16 @@ async function blindEvaluationCommand(
   const { repository } = await context();
   const engine = new BlindEvaluationEngine({ repository });
   const target = await engine.resolveTarget(sessionValue, flags.run);
-  console.log(`Session: ${target.session.name ?? target.session.id}`);
-  console.log(`Run: ${target.run.id}`);
   console.log(
-    `Agent Council — Blind Evaluation by ${flags.by === "all" ? "all participating providers" : flags.by}`
+    renderEvaluationStart(
+      target.session.name ?? target.session.id,
+      target.run.id,
+      flags.by,
+      process.stdout.columns || 120
+    )
   );
-  console.log("Candidate identities and execution time are hidden until scores are locked.");
   const execution = await engine.execute(target, flags.by);
+  if (execution.results.length > 0) process.stdout.write("\n");
   for (const result of execution.results) {
     console.log(
       renderBlindEvaluation(
@@ -224,7 +229,8 @@ async function blindEvaluationCommand(
       renderPeerScoreSummary(
         summaries,
         execution.failures.length === 0 &&
-          execution.results.length === target.run.effectiveConfig.enabledProviders.length
+          execution.results.length === target.run.effectiveConfig.enabledProviders.length,
+        process.stdout.columns || 120
       )
     );
     const timingResult = execution.results[0];
@@ -233,9 +239,8 @@ async function blindEvaluationCommand(
     }
   }
   if (execution.failures.length > 0) {
-    for (const failure of execution.failures) {
-      console.error(`Blind evaluation by ${failure.evaluator} failed: ${failure.error}`);
-    }
+    const terminalColumns = process.stderr.columns || process.stdout.columns || 120;
+    console.error(renderEvaluationFailures(execution.failures, terminalColumns));
     process.exitCode = 1;
   }
 }
