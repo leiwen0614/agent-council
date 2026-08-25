@@ -4,7 +4,6 @@ import type { ResolvedEvaluationResult } from "../../src/core/evaluation-types.j
 import {
   renderBlindEvaluation,
   renderEvaluationFailures,
-  renderEvaluationStart,
   renderEvaluationTiming,
   renderPeerScoreSummary
 } from "../../src/ui/evaluation.js";
@@ -199,17 +198,5 @@ describe("blind evaluation rendering", () => {
     expectValueCell(output, "Claude");
     expectValueCell(output, "Failed");
     expect(output).toContain("Authentication failed");
-  });
-
-  it.each([120, 50])("renders the pre-launch state as a bounded grid at width %i", (width) => {
-    const output = renderEvaluationStart("session", "run-1", "all", width);
-
-    expectClosedGrids(output, width);
-    expectValueCell(output, "session");
-    expectValueCell(output, "run-1");
-    expect(output).toContain("All participating");
-    expect(output).toContain("providers");
-    expect(output).toContain("Hidden while scoring");
-    expect(output).not.toContain("Candidate A");
   });
 });

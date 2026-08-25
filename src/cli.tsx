@@ -10,7 +10,6 @@ import { aggregatePeerScores } from "./core/evaluation-scoring.js";
 import {
   renderBlindEvaluation,
   renderEvaluationFailures,
-  renderEvaluationStart,
   renderEvaluationTiming,
   renderPeerScoreSummary
 } from "./ui/evaluation.js";
@@ -200,16 +199,7 @@ async function blindEvaluationCommand(
   const { repository } = await context();
   const engine = new BlindEvaluationEngine({ repository });
   const target = await engine.resolveTarget(sessionValue, flags.run);
-  console.log(
-    renderEvaluationStart(
-      target.session.name ?? target.session.id,
-      target.run.id,
-      flags.by,
-      process.stdout.columns || 120
-    )
-  );
   const execution = await engine.execute(target, flags.by);
-  if (execution.results.length > 0) process.stdout.write("\n");
   for (const result of execution.results) {
     console.log(
       renderBlindEvaluation(

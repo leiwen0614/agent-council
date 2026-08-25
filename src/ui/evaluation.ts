@@ -395,28 +395,6 @@ export function renderBlindEvaluation(
   return sections.join("\n\n");
 }
 
-export function renderEvaluationStart(
-  sessionLabel: string,
-  runId: string,
-  evaluator: ProviderId | "all",
-  terminalColumns = 120
-): string {
-  const width = outputWidth(terminalColumns);
-  const evaluatorLabel = evaluator === "all" ? "All participating providers" : NAMES[evaluator];
-  return keyValueGrid(
-    "Agent Council — Blind Evaluation by " + evaluatorLabel,
-    [
-      ["Session", sessionLabel],
-      ["Run", runId],
-      ["Evaluator", evaluatorLabel],
-      ["Candidate Identity", "Hidden while scoring"],
-      ["Execution Time", "Withheld from evaluators"],
-      ["Status", "Evaluating all anonymous candidate bundles"]
-    ],
-    width
-  );
-}
-
 export function renderEvaluationTiming(
   result: ResolvedEvaluationResult,
   terminalColumns = 120
