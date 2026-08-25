@@ -165,41 +165,6 @@ function keyValueGrid(
   return renderGrid(title, ["Field", "Value"], rows, width);
 }
 
-function renderIdentityGrids(result: ResolvedEvaluationResult, width: number): string[] {
-  if (width >= WIDE_GRID_WIDTH) {
-    return [
-      renderGrid(
-        "Identity Mapping",
-        ["Blind ID", "Agent", "Relationship to Evaluator"],
-        result.mapping.map((entry) => {
-          const candidate = result.candidates.find(
-            (item) => item.candidateId === entry.candidateId
-          );
-          return [
-            entry.candidateId,
-            NAMES[entry.provider],
-            relationshipLabel(candidate?.relationship ?? "peer")
-          ];
-        }),
-        width
-      )
-    ];
-  }
-
-  return result.mapping.map((entry) => {
-    const candidate = result.candidates.find((item) => item.candidateId === entry.candidateId);
-    return keyValueGrid(
-      `Identity Mapping · ${entry.candidateId}`,
-      [
-        ["Blind ID", entry.candidateId],
-        ["Agent", NAMES[entry.provider]],
-        ["Relationship to Evaluator", relationshipLabel(candidate?.relationship ?? "peer")]
-      ],
-      width
-    );
-  });
-}
-
 function renderScoreGrids(result: ResolvedEvaluationResult, width: number): string[] {
   const evaluator = NAMES[result.evaluator].toUpperCase();
   const rows = rankCandidates(result.candidates);
@@ -383,7 +348,6 @@ export function renderBlindEvaluation(
       ],
       width
     ),
-    ...renderIdentityGrids(result, width),
     ...renderScoreGrids(result, width),
     ...renderDimensionGrids(result, width)
   ];

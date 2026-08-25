@@ -107,10 +107,11 @@ describe("blind evaluation rendering", () => {
       const output = renderBlindEvaluation(result(), "a long session label for wrapping", width);
       const sections = expectClosedGrids(output, width);
 
-      expect(sections.length).toBe(width >= 100 ? 6 : 10);
+      expect(sections.length).toBe(width >= 100 ? 5 : 8);
       expect(output).toContain("Blind Evaluation by Codex");
       expect(output).toContain("Scores Assigned by CODEX");
-      expect(output.indexOf("✓ Scores locked")).toBeLessThan(output.indexOf("Identity Mapping"));
+      expect(output.indexOf("✓ Scores locked")).toBeLessThan(output.indexOf("Scores Assigned"));
+      expect(output).not.toContain("Identity Mapping");
       const metadata = sections[0] ?? "";
       expect(metadata).toContain("Candidates & Mapping");
       expect(metadata).toContain("Anonymous during");
@@ -147,7 +148,6 @@ describe("blind evaluation rendering", () => {
     const output = renderBlindEvaluation(result(), "session", 50);
     const sections = expectClosedGrids(output, 50);
 
-    expect(sections.filter((section) => section.includes("Identity Mapping ·"))).toHaveLength(2);
     expect(
       sections.filter((section) => section.includes("│ Scores Assigned by CODEX ·"))
     ).toHaveLength(2);
