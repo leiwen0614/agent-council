@@ -54,9 +54,9 @@ The following decisions are requirements, not implementation suggestions:
 1. The command is named **blind-eval**, not evaluate with a required blind flag.
 2. The canonical command is:
 
-   ~~~text
+   ```text
    council blind-eval --by codex
-   ~~~
+   ```
 
 3. The --by option always means **who performs the evaluation**.
 4. A named evaluator evaluates all eligible candidates, including itself when it participated in the original run.
@@ -76,17 +76,17 @@ The following decisions are requirements, not implementation suggestions:
 
 ## 4. Terminology
 
-| Term | Meaning |
-| --- | --- |
-| Evaluator | The provider selected by --by. Its identity is visible. |
-| Candidate | One provider's complete Stage 1–3 performance bundle. |
-| Blind ID | Candidate A, Candidate B, or Candidate C, assigned independently for each evaluator. |
-| Target provider | A provider whose Stage 1–3 artifacts are being scored. |
-| Self-evaluation | A score later revealed to have been assigned by an evaluator to its own candidate bundle. |
-| Peer evaluation | A score assigned by an evaluator to another provider's candidate bundle. |
-| Scores locked | The blind structured result has been validated and durably persisted before provider identities are attached. |
-| Identity reveal | Council applies the private Blind ID-to-provider mapping after score lock. |
-| Original-run execution time | Time spent by a target provider in Stages 1–3, calculated by Council from persisted attempts. |
+| Term                        | Meaning                                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evaluator                   | The provider selected by --by. Its identity is visible.                                                       |
+| Candidate                   | One provider's complete Stage 1–3 performance bundle.                                                         |
+| Blind ID                    | Candidate A, Candidate B, or Candidate C, assigned independently for each evaluator.                          |
+| Target provider             | A provider whose Stage 1–3 artifacts are being scored.                                                        |
+| Self-evaluation             | A score later revealed to have been assigned by an evaluator to its own candidate bundle.                     |
+| Peer evaluation             | A score assigned by an evaluator to another provider's candidate bundle.                                      |
+| Scores locked               | The blind structured result has been validated and durably persisted before provider identities are attached. |
+| Identity reveal             | Council applies the private Blind ID-to-provider mapping after score lock.                                    |
+| Original-run execution time | Time spent by a target provider in Stages 1–3, calculated by Council from persisted attempts.                 |
 
 Use **blind evaluation** rather than anonymous evaluation in CLI text. The evaluator is not anonymous; the candidates are hidden from the evaluator.
 
@@ -120,13 +120,13 @@ Use **blind evaluation** rather than anonymous evaluation in CLI text. The evalu
 
 ### 7.1 Canonical syntax
 
-~~~text
+```text
 council blind-eval [session-id-or-name] --by <codex|claude|copilot|all> [--run <run-id>]
-~~~
+```
 
 Examples:
 
-~~~shell
+```shell
 # Latest eligible run in the current project, evaluated by Codex
 council blind-eval --by codex
 
@@ -138,11 +138,11 @@ council blind-eval "pricing research" --run 2026-08-25_10-30-42 --by copilot
 
 # Every original run participant independently evaluates all candidates
 council blind-eval --by all
-~~~
+```
 
 ### 7.2 Help text
 
-~~~text
+```text
 Usage:
   council blind-eval [session] --by <evaluator> [--run <run-id>]
 
@@ -160,7 +160,7 @@ Required options:
 Options:
   --run <run-id>       Evaluate a specific run in the selected session.
   -h, --help           Display help.
-~~~
+```
 
 Do not add --blind or --anonymous. Blindness is encoded in the command name and cannot be disabled.
 
@@ -189,11 +189,11 @@ The MVP intentionally rejects degraded or partial runs rather than inventing sco
 
 Recommended error:
 
-~~~text
+```text
 [BLIND_EVAL_RUN_INELIGIBLE] Run 2026-08-25_10-30-42 is not a complete
 three-stage run. Blind evaluation currently requires every effective provider
 to have completed Initial Answer, Anonymous Cross-Review, and Final Report.
-~~~
+```
 
 ### 7.4 Evaluator selection
 
@@ -217,7 +217,7 @@ For --by all, start every ready evaluator concurrently. One evaluator failure mu
 
 The running view must identify the evaluator but must not show the private candidate mapping:
 
-~~~text
+```text
  Agent Council — Blind Evaluation by Codex
 ────────────────────────────────────────────────────────────────────────────
  Session            pricing research
@@ -232,7 +232,7 @@ The running view must identify the evaluator but must not show the private candi
  Preparing anonymized evidence…                         completed
  Starting fresh Codex evaluator session…                completed
  Evaluating Candidate A/B/C…                            running
-~~~
+```
 
 The evaluator normally scores every candidate in one provider invocation so the rubric is applied consistently. Do not fake per-candidate completion progress if the provider produces only one final structured response.
 
@@ -240,7 +240,7 @@ The evaluator normally scores every candidate in one provider invocation so the 
 
 After the blind result is validated and persisted:
 
-~~~text
+```text
  Agent Council — Blind Evaluation by Codex
 ────────────────────────────────────────────────────────────────────────────
  Session            pricing research
@@ -294,7 +294,7 @@ After the blind result is validated and persisted:
  All scores above were assigned by CODEX.
  Codex → Codex is a blind self-evaluation revealed after scoring.
  Codex → Claude/Copilot are peer evaluations.
-~~~
+```
 
 Required output rules:
 
@@ -313,14 +313,14 @@ Required output rules:
 
 Each evaluator retains its own full result and private mapping. After all requested evaluators reach a terminal state, show an aggregate comparison without inventing a Council score:
 
-~~~text
+```text
  Peer Score Summary
 ────────────────────────────────────────────────────────────────────────────
  Agent      Self Score   Peer Average   Self–Peer Gap   Peer Rank
  Codex         87.0          84.5           +2.5            2
  Claude        85.0          88.0           -3.0            1
  Copilot       78.0          76.5           +1.5            3
-~~~
+```
 
 Rules:
 
@@ -340,19 +340,19 @@ For --by all, do not reveal any mapping until every successfully running evaluat
 
 ### 9.1 What is visible and hidden
 
-| Information | Visible to user | Visible to evaluator while scoring |
-| --- | ---: | ---: |
-| Evaluator identity | Yes | Yes |
-| Original user prompt | Yes | Yes |
-| Candidate Blind IDs | Yes | Yes |
-| Candidate provider identities | After lock | No |
-| Self/Peer relationship | After lock | No |
-| Provider model and effort | Afterward in metadata if needed | No |
-| Provider session IDs | No | No |
-| Original artifact filenames and paths | No | No |
-| Stage execution times | After lock | No |
-| Token counts and provider timing metadata | Not required in UI | No |
-| Stage 1–3 candidate prose | Yes | Yes |
+| Information                               |                 Visible to user | Visible to evaluator while scoring |
+| ----------------------------------------- | ------------------------------: | ---------------------------------: |
+| Evaluator identity                        |                             Yes |                                Yes |
+| Original user prompt                      |                             Yes |                                Yes |
+| Candidate Blind IDs                       |                             Yes |                                Yes |
+| Candidate provider identities             |                      After lock |                                 No |
+| Self/Peer relationship                    |                      After lock |                                 No |
+| Provider model and effort                 | Afterward in metadata if needed |                                 No |
+| Provider session IDs                      |                              No |                                 No |
+| Original artifact filenames and paths     |                              No |                                 No |
+| Stage execution times                     |                      After lock |                                 No |
+| Token counts and provider timing metadata |              Not required in UI |                                 No |
+| Stage 1–3 candidate prose                 |                             Yes |                                Yes |
 
 ### 9.2 Fresh evaluator session
 
@@ -439,7 +439,7 @@ Wrap all user and candidate content with explicit delimiters. Treat every embedd
 
 Each Candidate bundle must use the same structure:
 
-~~~text
+```text
 Candidate A
 ├── Stage 1 Initial Answer
 ├── Stage 2 Reviews Written
@@ -449,7 +449,7 @@ Candidate A
 │   ├── Feedback from Candidate B
 │   └── Feedback from Candidate C
 └── Stage 3 Final Report
-~~~
+```
 
 The evaluator needs both reviews written and feedback received:
 
@@ -464,14 +464,14 @@ Existing Stage 2 reviews use reviewer-specific Answer A/B mappings stored in run
 
 Build one evaluator-specific global Candidate mapping, then normalize each review envelope:
 
-~~~text
+```text
 Review written by Candidate A
 Reviewed subjects:
   Original Answer A → Candidate C
   Original Answer B → Candidate B
 
 <verbatim review prose>
-~~~
+```
 
 Requirements:
 
@@ -500,10 +500,10 @@ MVP rule: never silently truncate, summarize, or omit one candidate more than an
 
 If the package is too large and no reliable provider limit is available, allow the provider to return its normal context-limit failure and surface an actionable error. If a known limit is exceeded before launch, fail early:
 
-~~~text
+```text
 [BLIND_EVAL_INPUT_TOO_LARGE] The complete blind evaluation package exceeds
 the configured evaluator context limit. No candidate content was truncated.
-~~~
+```
 
 Chunked or map-reduce evaluation is a future feature because it changes score calibration.
 
@@ -511,26 +511,26 @@ Chunked or map-reduce evaluation is a future feature because it changes score ca
 
 Every dimension is scored from 0.0 through 10.0. The evaluator may use one decimal place. Weights sum to 100%.
 
-| Dimension | Weight | Definition |
-| --- | ---: | --- |
-| Correctness | 30% | Accuracy of factual and technical claims, internal consistency, validity of code or proposed implementation, and correctness of the final conclusion. |
-| Task Fulfillment | 15% | Coverage of the original request, explicit constraints, required deliverables, and important edge cases. |
-| Evidence Quality | 15% | Reliability, relevance, traceability, and sufficiency of evidence or citations supporting material claims. |
-| Reasoning Rigor | 15% | Quality of assumptions, causal reasoning, trade-off analysis, uncertainty handling, and absence of unsupported logical jumps. |
-| Critique Quality | 10% | Accuracy, specificity, fairness, and usefulness of the candidate's Stage 2 reviews of peer answers. |
-| Synthesis & Improvement | 10% | Degree to which Stage 3 corrects Stage 1 issues, responds to received review feedback, and incorporates useful peer ideas without copying blindly. |
-| Clarity & Actionability | 5% | Organization, precision, readability, and usefulness of the final result for a human decision or next action. |
+| Dimension               | Weight | Definition                                                                                                                                            |
+| ----------------------- | -----: | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Correctness             |    30% | Accuracy of factual and technical claims, internal consistency, validity of code or proposed implementation, and correctness of the final conclusion. |
+| Task Fulfillment        |    15% | Coverage of the original request, explicit constraints, required deliverables, and important edge cases.                                              |
+| Evidence Quality        |    15% | Reliability, relevance, traceability, and sufficiency of evidence or citations supporting material claims.                                            |
+| Reasoning Rigor         |    15% | Quality of assumptions, causal reasoning, trade-off analysis, uncertainty handling, and absence of unsupported logical jumps.                         |
+| Critique Quality        |    10% | Accuracy, specificity, fairness, and usefulness of the candidate's Stage 2 reviews of peer answers.                                                   |
+| Synthesis & Improvement |    10% | Degree to which Stage 3 corrects Stage 1 issues, responds to received review feedback, and incorporates useful peer ideas without copying blindly.    |
+| Clarity & Actionability |     5% | Organization, precision, readability, and usefulness of the final result for a human decision or next action.                                         |
 
 ### 11.1 Score anchors
 
-| Score | Anchor |
-| ---: | --- |
-| 0 | Missing, unusable, or wholly incorrect. |
-| 2 | Major failures dominate; little useful work. |
-| 4 | Substantial errors or omissions; below acceptable. |
-| 6 | Adequate but contains meaningful gaps. |
-| 8 | Strong, mostly correct, well supported, and useful. |
-| 10 | Exceptional for the task; highly accurate, complete, rigorous, and actionable. |
+| Score | Anchor                                                                         |
+| ----: | ------------------------------------------------------------------------------ |
+|     0 | Missing, unusable, or wholly incorrect.                                        |
+|     2 | Major failures dominate; little useful work.                                   |
+|     4 | Substantial errors or omissions; below acceptable.                             |
+|     6 | Adequate but contains meaningful gaps.                                         |
+|     8 | Strong, mostly correct, well supported, and useful.                            |
+|    10 | Exceptional for the task; highly accurate, complete, rigorous, and actionable. |
 
 The evaluator must score candidates against the rubric and original task, not force a winner. Equal scores are valid.
 
@@ -560,15 +560,15 @@ The evaluator supplies only dimension scores and critical-error judgments. Counc
 
 For candidate c:
 
-~~~text
+```text
 rawTotal(c) = Σ [dimensionScore(c, d) × weight(d) ÷ 10]
-~~~
+```
 
 Example:
 
-~~~text
+```text
 Correctness score 9.0 with weight 30 contributes 27.0 points.
-~~~
+```
 
 Rules:
 
@@ -592,17 +592,17 @@ The current ProviderAttempt type already persists startedAt and finishedAt for e
 
 For provider p and stage s:
 
-~~~text
+```text
 stageDuration(p, s) =
   Σ max(0, finishedAt(attempt) - startedAt(attempt))
-~~~
+```
 
 Total:
 
-~~~text
+```text
 totalDuration(p) =
   initialDuration + reviewDuration + finalDuration
-~~~
+```
 
 ### 13.2 Semantics
 
@@ -640,7 +640,7 @@ Create a dedicated prompt builder, separate from the existing initial/review/fin
 
 Suggested protocol skeleton:
 
-~~~text
+```text
 <<<COUNCIL_BLIND_EVAL_PROTOCOL_START>>>
 You are the named evaluator in a blind post-run Agent Council evaluation.
 Candidate identities are hidden. One candidate may be your own earlier work,
@@ -672,13 +672,13 @@ weighted totals or ranks; Council calculates them deterministically.
 <<<COUNCIL_CANDIDATES_START>>>
 <normalized Candidate bundles>
 <<<COUNCIL_CANDIDATES_END>>>
-~~~
+```
 
 ## 15. Evaluator Output Schema
 
 Use a strict Zod schema. A representative JSON result is:
 
-~~~json
+```json
 {
   "schemaVersion": 1,
   "candidates": [
@@ -722,7 +722,7 @@ Use a strict Zod schema. A representative JSON result is:
     }
   ]
 }
-~~~
+```
 
 Schema requirements:
 
@@ -782,7 +782,7 @@ Keep evaluation separate from the existing Stage and RunStatus state machines.
 
 Recommended run layout:
 
-~~~text
+```text
 .council/
 └── sessions/
     └── <session-id>/
@@ -809,7 +809,7 @@ Recommended run layout:
                     ├── evaluation-codex.jsonl
                     ├── evaluation-claude.jsonl
                     └── evaluation-copilot.jsonl
-~~~
+```
 
 The persisted evaluation prompt contains only anonymous Candidate IDs. It must not contain the mapping or execution timing.
 
@@ -859,7 +859,7 @@ For --by all:
 
 Names may be adjusted to repository conventions, but the information and invariants must remain.
 
-~~~ts
+```ts
 type EvaluationDimensionId =
   | "correctness"
   | "taskFulfillment"
@@ -871,10 +871,7 @@ type EvaluationDimensionId =
 
 type BlindCandidateScore = {
   candidateId: string;
-  dimensions: Record<
-    EvaluationDimensionId,
-    { score: number; rationale: string }
-  >;
+  dimensions: Record<EvaluationDimensionId, { score: number; rationale: string }>;
   criticalError: {
     present: boolean;
     categories: string[];
@@ -929,7 +926,7 @@ type ResolvedEvaluationResult = {
   identitiesRevealedAt: string;
   warnings: string[];
 };
-~~~
+```
 
 Use strict Zod schemas and atomic JSON writes. Persisted provider records should cover all three provider keys where that matches existing repository style, even when only two were effective.
 
@@ -939,7 +936,7 @@ Add a dedicated BlindEvaluationEngine rather than adding evaluation branches to 
 
 Suggested flow:
 
-~~~mermaid
+```mermaid
 flowchart TD
     R["Resolve completed run"] --> P["Preflight evaluator"]
     P --> B["Build anonymous bundles"]
@@ -950,7 +947,7 @@ flowchart TD
     L --> M["Apply private mapping"]
     M --> T["Attach stage timings"]
     T --> O["Persist and render result"]
-~~~
+```
 
 Responsibilities:
 
@@ -965,7 +962,7 @@ Responsibilities:
 
 For each evaluator:
 
-~~~ts
+```ts
 adapter.start({
   prompt: blindPrompt,
   cwd: isolatedTemporaryDirectory,
@@ -974,7 +971,7 @@ adapter.start({
   effort: run.effectiveConfig.agents[evaluator].effort,
   promptPath: evaluator === "copilot" ? isolatedPromptPath : undefined
 });
-~~~
+```
 
 Never pass an existing sessionId and never call repository.setProviderSessionId.
 
@@ -1001,22 +998,22 @@ Reuse CancellationManager semantics:
 
 The implementation agent should re-read current code before editing. Based on the reviewed main branch, likely touch points are:
 
-| Area | Existing file | Expected change |
-| --- | --- | --- |
-| Command registration | src/cli.tsx | Register blind-eval, parse --by and optional session/--run, resolve and render errors. |
-| CLI parsing | src/cli/interaction.ts | Add a strict evaluator parser that accepts one provider or all; do not reuse parsers that enforce a minimum of two. |
-| Core types | src/core/types.ts or a new evaluation-types.ts | Add blind and resolved evaluation types without adding evaluation to Stage. |
-| Runtime schemas | src/core/schemas.ts or a new evaluation-schemas.ts | Add strict evaluator output and persisted-record schemas. |
-| Prompt construction | new src/core/evaluation-prompts.ts | Build mappings, normalized evidence, rubric, and strict JSON contract. |
-| Score calculation | new src/core/evaluation-scoring.ts | Validate weights, calculate totals/caps/ranks, and aggregate peer scores. |
-| Orchestration | new src/orchestration/evaluation.ts | Fresh sessions, isolated cwd, parallel --by all execution, cancellation, lock/reveal barrier. |
-| Provider adapters | existing src/providers/* | Prefer no interface expansion; reuse start with yolo false and isolated cwd. Add a structured-output option only if it can remain provider-specific and typed. |
-| Storage paths | src/storage/paths.ts | Add evaluation, blind-result, prompt, and diagnostic paths. |
-| Storage repository | src/storage/repository.ts or new evaluation repository | Validated reads, atomic blind lock, resolved write, and idempotent reuse. |
-| Timing | existing ProviderAttempt records | Derive per-stage durations; do not add timing to evaluator prompts. |
-| UI | new src/ui/evaluation.tsx | Pure render functions for running state, single result, and all-evaluator summary. |
-| Documentation | AGENTS.md, README.md, docs/product-design.md | Document the narrow scoring exception and new command. |
-| Tests | test/core, test/orchestration, test/storage, test/ui, test/cli | Add the cases listed below. |
+| Area                 | Existing file                                                  | Expected change                                                                                                                                                |
+| -------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command registration | src/cli.tsx                                                    | Register blind-eval, parse --by and optional session/--run, resolve and render errors.                                                                         |
+| CLI parsing          | src/cli/interaction.ts                                         | Add a strict evaluator parser that accepts one provider or all; do not reuse parsers that enforce a minimum of two.                                            |
+| Core types           | src/core/types.ts or a new evaluation-types.ts                 | Add blind and resolved evaluation types without adding evaluation to Stage.                                                                                    |
+| Runtime schemas      | src/core/schemas.ts or a new evaluation-schemas.ts             | Add strict evaluator output and persisted-record schemas.                                                                                                      |
+| Prompt construction  | new src/core/evaluation-prompts.ts                             | Build mappings, normalized evidence, rubric, and strict JSON contract.                                                                                         |
+| Score calculation    | new src/core/evaluation-scoring.ts                             | Validate weights, calculate totals/caps/ranks, and aggregate peer scores.                                                                                      |
+| Orchestration        | new src/orchestration/evaluation.ts                            | Fresh sessions, isolated cwd, parallel --by all execution, cancellation, lock/reveal barrier.                                                                  |
+| Provider adapters    | existing src/providers/*                                       | Prefer no interface expansion; reuse start with yolo false and isolated cwd. Add a structured-output option only if it can remain provider-specific and typed. |
+| Storage paths        | src/storage/paths.ts                                           | Add evaluation, blind-result, prompt, and diagnostic paths.                                                                                                    |
+| Storage repository   | src/storage/repository.ts or new evaluation repository         | Validated reads, atomic blind lock, resolved write, and idempotent reuse.                                                                                      |
+| Timing               | existing ProviderAttempt records                               | Derive per-stage durations; do not add timing to evaluator prompts.                                                                                            |
+| UI                   | new src/ui/evaluation.tsx                                      | Pure render functions for running state, single result, and all-evaluator summary.                                                                             |
+| Documentation        | AGENTS.md, README.md, docs/product-design.md                   | Document the narrow scoring exception and new command.                                                                                                         |
+| Tests                | test/core, test/orchestration, test/storage, test/ui, test/cli | Add the cases listed below.                                                                                                                                    |
 
 Do not put evaluation business logic in Ink components. Follow the existing pattern where UI and persistence are projections of normalized state.
 
@@ -1024,19 +1021,19 @@ Do not put evaluation business logic in Ink components. Follow the existing patt
 
 Recommended errors:
 
-| Code | Condition |
-| --- | --- |
-| INVALID_EVALUATOR | --by is absent or not codex, claude, copilot, or all. |
-| BLIND_EVAL_RUN_NOT_FOUND | No run matches the supplied selection. |
-| BLIND_EVAL_RUN_INELIGIBLE | Run is incomplete, partial, degraded, abandoned, or lacks two complete providers. |
-| BLIND_EVAL_MAPPING_INVALID | Candidate or Stage 2 mapping is missing, duplicated, or inconsistent. |
-| BLIND_EVAL_EVALUATOR_UNAVAILABLE | Selected evaluator CLI is not installed or authenticated. |
-| BLIND_EVAL_INPUT_TOO_LARGE | Complete evidence cannot fit without truncation. |
-| BLIND_EVAL_OUTPUT_INVALID | Evaluator output fails strict validation after the allowed repair attempt. |
-| BLIND_EVAL_LOCK_FAILED | Blind result could not be atomically persisted. |
-| BLIND_EVAL_REVEAL_FAILED | Scores locked but resolved identity record could not be written. |
-| BLIND_EVAL_CANCELLED | User cancelled before completion. |
-| BLIND_EVAL_EXISTING_INVALID | Existing evaluation files are present but corrupt or fail schema validation. |
+| Code                             | Condition                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| INVALID_EVALUATOR                | --by is absent or not codex, claude, copilot, or all.                             |
+| BLIND_EVAL_RUN_NOT_FOUND         | No run matches the supplied selection.                                            |
+| BLIND_EVAL_RUN_INELIGIBLE        | Run is incomplete, partial, degraded, abandoned, or lacks two complete providers. |
+| BLIND_EVAL_MAPPING_INVALID       | Candidate or Stage 2 mapping is missing, duplicated, or inconsistent.             |
+| BLIND_EVAL_EVALUATOR_UNAVAILABLE | Selected evaluator CLI is not installed or authenticated.                         |
+| BLIND_EVAL_INPUT_TOO_LARGE       | Complete evidence cannot fit without truncation.                                  |
+| BLIND_EVAL_OUTPUT_INVALID        | Evaluator output fails strict validation after the allowed repair attempt.        |
+| BLIND_EVAL_LOCK_FAILED           | Blind result could not be atomically persisted.                                   |
+| BLIND_EVAL_REVEAL_FAILED         | Scores locked but resolved identity record could not be written.                  |
+| BLIND_EVAL_CANCELLED             | User cancelled before completion.                                                 |
+| BLIND_EVAL_EXISTING_INVALID      | Existing evaluation files are present but corrupt or fail schema validation.      |
 
 Messages must identify the evaluator and run when safe, but must not reveal a private mapping before lock.
 
@@ -1216,21 +1213,21 @@ The feature is complete only when all of the following are true:
 14. Add wide/narrow UI snapshots and cross-platform path tests.
 15. Run:
 
-    ~~~shell
+    ```shell
     npm run format:write
     npm run lint
     npm run typecheck
     npm test
     npm run build
-    ~~~
+    ```
 
 ## 26. Final Product Principle
 
 The command should make its provenance unmissable:
 
-~~~text
+```text
 council blind-eval --by codex
-~~~
+```
 
 means:
 

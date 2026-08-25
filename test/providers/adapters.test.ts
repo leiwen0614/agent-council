@@ -58,6 +58,18 @@ describe("provider command construction", () => {
     expect(latestArguments()).not.toContain("--safe-mode");
   });
 
+  it("allows an explicitly isolated Codex start outside a Git repository", () => {
+    mockedExeca.mockReturnValueOnce(fakeProcess());
+    new CodexAdapter().start({
+      prompt: "blind evaluation",
+      cwd: "C:/isolated",
+      allowNonGitWorkingDirectory: true,
+      yolo: false,
+      ...defaults
+    });
+    expect(latestArguments()).toContain("--skip-git-repo-check");
+  });
+
   it("keeps each provider's YOLO flag inside its adapter", () => {
     mockedExeca.mockReturnValueOnce(fakeProcess());
     new ClaudeAdapter().start({ prompt: "task", cwd: "C:/repo", yolo: true, ...defaults });

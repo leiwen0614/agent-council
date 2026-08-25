@@ -28,7 +28,10 @@ Treat the following as product requirements. Do not change them without explicit
 
 4. **There is no Council-authored authoritative summary.**
    - The orchestrator may assemble prompts, route events, persist files, and render views.
-   - It must not synthesize, rank, rewrite, or choose answers by itself.
+   - It must not synthesize, rewrite, or choose answers by itself.
+   - Council may calculate and display deterministic totals and rankings only from the explicit
+     scores produced by a named provider through the post-run blind-evaluation workflow. It must
+     never create hidden or Council-authored quality scores.
    - Each provider receives the original prompt, all initial answers, and all cross-reviews, then writes one final report.
    - The user chooses one report or records a mixed decision.
    - A single `final.md` may exist only after an explicit user choice or an explicit request for one named provider to merge selected material.
@@ -59,6 +62,22 @@ Treat the following as product requirements. Do not change them without explicit
 9. **The tool must behave consistently on Windows, macOS, and Linux.**
    - Do not rely on Bash, PowerShell, CMD, tmux, or another platform-specific shell for core behavior.
    - Treat platform-specific terminal layouts as optional presentation adapters, not core orchestration.
+
+10. **Post-run blind evaluation is provider-authored and best-effort blind.**
+
+- `council blind-eval --by <provider|all>` is optional and separate from the three reasoning stages.
+- The evaluator is visible, but each evaluator receives its own randomized Candidate A/B/C
+  mapping and no candidate identity, Self/Peer relationship, execution timing, model, effort,
+  session ID, or provider-named path while scoring.
+- Every evaluator scores every complete candidate bundle, including its own when it participated,
+  in a fresh, safe provider session launched from an isolated temporary directory.
+- Validate and durably lock the blind score record before revealing the private mapping. Council
+  alone calculates rubric-weighted totals and later attaches original-run timing; timing never
+  affects a score or rank.
+- A named evaluator's result remains that provider's judgment. `--by all` may show transparent
+  peer-only aggregate statistics, but must not invent a blended Council score or recommendation.
+- Blind evaluation never changes `decision.json`, selects a final report, or creates a Council
+  verdict. Prose style may leak identity, so persisted results must call blindness best-effort.
 
 ## Session and Run Semantics
 
@@ -107,6 +126,9 @@ Recommended storage shape:
             |  |- codex.md
             |  |- claude.md
             |  `- copilot.md
+            |- evaluations/
+            |  |- <evaluator>.blind.json
+            |  `- <evaluator>.json
             `- decision.json
 ```
 
@@ -126,6 +148,7 @@ The MVP is a research-and-comparison workflow:
 8. Run final-report prompts concurrently in every effective provider session.
 9. Stream and persist every effective-provider final report.
 10. Let the user record a selected or mixed decision.
+11. Optionally run one named provider, or all original participants, as post-run blind evaluators.
 
 Do not expand the MVP into automatic code implementation, multi-worktree execution, a desktop application, cloud sync, hosted accounts, or a Council-owned AI synthesis layer unless the user explicitly changes scope.
 
@@ -254,7 +277,10 @@ Support both a single selection and a mixed decision, for example:
 }
 ```
 
-Do not auto-populate a winner, score providers using hidden heuristics, or describe one final report as authoritative without an explicit user decision.
+Do not auto-populate a winner, score providers using hidden heuristics or Council-authored judgment,
+or describe one final report as authoritative without an explicit user decision. The only permitted
+provider scoring is the explicit post-run blind-evaluation workflow: its evaluator provenance must
+remain visible, and its deterministic rankings must not alter the user's decision.
 
 ## Engineering Workflow
 

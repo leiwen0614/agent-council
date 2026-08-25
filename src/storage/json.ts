@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ZodType, ZodTypeDef } from "zod";
@@ -23,6 +23,24 @@ export async function writeJsonAtomic(path: string, value: unknown): Promise<voi
       throw error;
     }
   }
+}
+
+/**
+ * Creates an immutable JSON record without replacing an existing target. A hard-link commit keeps
+ * the no-overwrite transition atomic on every supported platform because the temporary file and
+ * target live in the same directory. The returned bytes are exactly the bytes committed to disk.
+ */
+export async function writeJsonAtomicExclusive(path: string, value: unknown): Promise<Buffer> {
+  await mkdir(dirname(path), { recursive: true });
+  const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  await writeFile(temporaryPath, bytes, { flag: "wx" });
+  try {
+    await link(temporaryPath, path);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
+  return bytes;
 }
 
 export async function readValidatedJson<T>(

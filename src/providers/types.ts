@@ -7,6 +7,7 @@ export type StartOptions = {
   model: string | null;
   effort: string | null;
   promptPath?: string | undefined;
+  allowNonGitWorkingDirectory?: boolean | undefined;
 };
 
 export type ResumeOptions = StartOptions & {

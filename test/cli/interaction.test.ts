@@ -12,6 +12,7 @@ vi.mock("@inquirer/prompts", () => promptMocks);
 import {
   askPrompt,
   parseCouncilProviders,
+  parseEvaluator,
   parseProviders,
   restoreInteractiveInput
 } from "../../src/cli/interaction.js";
@@ -64,6 +65,16 @@ describe("Council prompt input", () => {
       expect(options.validate("   ")).toBe("The prompt cannot be empty.");
       expect(options.validate("question")).toBe(true);
     });
+  });
+});
+
+describe("blind evaluator parsing", () => {
+  it.each(["codex", "claude", "copilot", "all"])("accepts %s", (value) => {
+    expect(parseEvaluator(value)).toBe(value);
+  });
+
+  it.each(["", "codex,claude", "unknown"])("rejects %s", (value) => {
+    expect(() => parseEvaluator(value)).toThrowError(/one of/iu);
   });
 });
 

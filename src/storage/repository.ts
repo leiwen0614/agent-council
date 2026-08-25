@@ -12,6 +12,11 @@ import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { councilDecisionSchema, councilRunSchema, councilSessionSchema } from "../core/schemas.js";
 import {
+  blindEvaluationResultSchema,
+  resolvedEvaluationResultSchema
+} from "../core/evaluation-schemas.js";
+import type { BlindEvaluationResult, ResolvedEvaluationResult } from "../core/evaluation-types.js";
+import {
   PROVIDERS,
   STAGES,
   type CouncilDecision,
@@ -28,7 +33,7 @@ import { CouncilError } from "../util/errors.js";
 import { redactSecrets } from "../util/redact.js";
 import { makeRunId, nowIso } from "../util/time.js";
 import { appendEventRecord, createCouncilEvent, inspectEventLog } from "./events.js";
-import { readValidatedJson, writeJsonAtomic } from "./json.js";
+import { readValidatedJson, writeJsonAtomic, writeJsonAtomicExclusive } from "./json.js";
 import { CouncilPaths } from "./paths.js";
 
 const ARTIFACT_RELATIVE: Record<Stage, Record<ProviderId, string>> = {
@@ -265,6 +270,19 @@ export class CouncilRepository {
     return (await this.listRuns(sessionId))[0] ?? null;
   }
 
+  async findRun(sessionId: string, runId: string): Promise<CouncilRun> {
+    const path = this.paths.runJson(sessionId, runId);
+    if (!(await exists(path))) {
+      throw new CouncilError(
+        "BLIND_EVAL_RUN_NOT_FOUND",
+        `No Council run ${runId} exists in session ${sessionId}.`
+      );
+    }
+    // Preserve storage/schema errors for an existing corrupt run. Treating corruption as a missing
+    // selector would hide the artifact the user needs to repair.
+    return this.loadRun(sessionId, runId);
+  }
+
   async readPrompt(run: CouncilRun): Promise<string> {
     return readFile(this.paths.prompt(run.sessionId, run.id), "utf8");
   }
@@ -394,6 +412,127 @@ export class CouncilRepository {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, prompt, "utf8");
     return path;
+  }
+
+  async writeEvaluationPrompt(
+    run: CouncilRun,
+    evaluator: ProviderId,
+    prompt: string
+  ): Promise<string> {
+    const path = this.paths.evaluationPrompt(run.sessionId, run.id, evaluator);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, prompt, "utf8");
+    return path;
+  }
+
+  async readEvaluationPrompt(run: CouncilRun, evaluator: ProviderId): Promise<string | null> {
+    const path = this.paths.evaluationPrompt(run.sessionId, run.id, evaluator);
+    if (!(await exists(path))) return null;
+    return readFile(path, "utf8");
+  }
+
+  async lockBlindEvaluation(run: CouncilRun, result: BlindEvaluationResult): Promise<Buffer> {
+    const parsed = blindEvaluationResultSchema.parse(result);
+    try {
+      return await writeJsonAtomicExclusive(
+        this.paths.blindEvaluation(run.sessionId, run.id, result.evaluator),
+        parsed
+      );
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : "";
+      if (code === "EEXIST") {
+        throw new CouncilError(
+          "BLIND_EVAL_EXISTING_INVALID",
+          `A blind evaluation record already exists for ${result.evaluator} on run ${run.id}.`,
+          { cause: error }
+        );
+      }
+      throw new CouncilError(
+        "BLIND_EVAL_LOCK_FAILED",
+        `Could not lock blind scores from ${result.evaluator} for run ${run.id}.`,
+        { cause: error }
+      );
+    }
+  }
+
+  async loadBlindEvaluation(
+    run: CouncilRun,
+    evaluator: ProviderId
+  ): Promise<BlindEvaluationResult | null> {
+    const path = this.paths.blindEvaluation(run.sessionId, run.id, evaluator);
+    if (!(await exists(path))) return null;
+    try {
+      return await readValidatedJson(path, blindEvaluationResultSchema);
+    } catch (error) {
+      throw new CouncilError(
+        "BLIND_EVAL_EXISTING_INVALID",
+        `The existing blind evaluation from ${evaluator} for run ${run.id} is invalid.`,
+        { cause: error }
+      );
+    }
+  }
+
+  async saveResolvedEvaluation(run: CouncilRun, result: ResolvedEvaluationResult): Promise<void> {
+    const path = this.paths.resolvedEvaluation(run.sessionId, run.id, result.evaluator);
+    try {
+      await writeJsonAtomicExclusive(path, resolvedEvaluationResultSchema.parse(result));
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : "";
+      if (code === "EEXIST") {
+        throw new CouncilError(
+          "BLIND_EVAL_EXISTING_INVALID",
+          `A resolved evaluation already exists for ${result.evaluator} on run ${run.id}.`,
+          { cause: error }
+        );
+      }
+      throw new CouncilError(
+        "BLIND_EVAL_REVEAL_FAILED",
+        `Scores from ${result.evaluator} were locked, but identities could not be persisted.`,
+        { cause: error }
+      );
+    }
+  }
+
+  async loadResolvedEvaluation(
+    run: CouncilRun,
+    evaluator: ProviderId
+  ): Promise<ResolvedEvaluationResult | null> {
+    const path = this.paths.resolvedEvaluation(run.sessionId, run.id, evaluator);
+    if (!(await exists(path))) return null;
+    try {
+      return await readValidatedJson(path, resolvedEvaluationResultSchema);
+    } catch (error) {
+      throw new CouncilError(
+        "BLIND_EVAL_EXISTING_INVALID",
+        `The existing evaluation from ${evaluator} for run ${run.id} is invalid.`,
+        { cause: error }
+      );
+    }
+  }
+
+  async readLockedEvaluationBytes(run: CouncilRun, evaluator: ProviderId): Promise<Buffer> {
+    return readFile(this.paths.blindEvaluation(run.sessionId, run.id, evaluator));
+  }
+
+  async evaluationRecordExists(run: CouncilRun, evaluator: ProviderId): Promise<boolean> {
+    return (
+      (await exists(this.paths.blindEvaluation(run.sessionId, run.id, evaluator))) ||
+      (await exists(this.paths.resolvedEvaluation(run.sessionId, run.id, evaluator)))
+    );
+  }
+
+  async appendEvaluationDiagnostic(
+    run: CouncilRun,
+    evaluator: ProviderId,
+    record: Record<string, unknown>
+  ): Promise<void> {
+    const path = this.paths.evaluationDiagnostic(run.sessionId, run.id, evaluator);
+    await mkdir(dirname(path), { recursive: true });
+    const redacted = JSON.stringify(record, (key, value: unknown) => {
+      if (key.length > 0 && SENSITIVE_DIAGNOSTIC_KEY.test(key)) return "[REDACTED]";
+      return typeof value === "string" ? redactSecrets(value) : value;
+    });
+    await appendFile(path, redacted + "\n", "utf8");
   }
 
   async appendDiagnostic(

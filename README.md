@@ -7,7 +7,8 @@ report for the user to judge. Two or three providers may participate; all three 
 default. A run never starts with fewer than two ready providers.
 
 Agent Council is an orchestrator, not a fourth agent. It does not synthesize an authoritative
-answer, rank providers, or choose a winner.
+answer or choose a winner. Its optional blind-evaluation command displays scores authored by a
+named provider; Council contributes only transparent arithmetic and never a hidden judgment.
 
 > [!IMPORTANT]
 > This project is an early MVP. Provider CLI output formats and resume behavior can change between
@@ -57,6 +58,8 @@ council resume "my research"
 council sessions
 council decide "my research"
 council export "my research" codex
+council blind-eval --by codex
+council blind-eval "my research" --run 2026-08-25_10-30-42 --by all
 ```
 
 Prompts can also be read from `--prompt-file` or standard input. Permission bypass is explicit per
@@ -107,6 +110,30 @@ Cross-Review, and Final Report renderings therefore remain in the terminal's nor
 Full provider output is also saved under `.council/` as it streams.
 After the final snapshot is appended, Council keeps the terminal open at an interactive decision
 menu so the user can select one final report, record a mixed decision, or defer the choice.
+
+## Post-run blind evaluation
+
+`council blind-eval [session] --by <codex|claude|copilot|all> [--run <run-id>]` optionally asks a
+visible evaluator to score every provider's complete Initial Answer, Cross-Review, and Final Report
+bundle. With no session or run selector, Council uses the newest eligible run in the current
+project. An eligible run must be a non-degraded, complete three-stage run from at least two
+providers. A named evaluator can be outside the original run if its CLI is ready; `--by all` means
+all effective providers recorded in the original run.
+
+Candidate identities are best-effort blind during scoring. Each evaluator receives an independently
+randomized Candidate A/B/C mapping in a fresh, safe provider session whose isolated working
+directory contains only anonymous evidence. Council withholds provider identities, Self/Peer
+relationships, model and effort, session metadata, and original-run execution time. It validates
+the evaluator's seven rubric scores, computes the weighted totals, and atomically locks the blind
+record before revealing identities. Execution time is attached afterward and never affects rank.
+
+The result is explicitly labeled as the named evaluator's judgment. `--by all` runs independent
+evaluations concurrently and adds peer averages, self-versus-peer gaps, and peer ranks without
+creating a blended "Council score." Blind evaluation does not recommend a report, select a winner,
+modify `decision.json`, or create `final.md`. Repeating a completed evaluation reuses its persisted
+result. Records are stored beside the run under `evaluations/<evaluator>.blind.json` and
+`evaluations/<evaluator>.json`; the corresponding persisted prompt contains anonymous Candidate
+IDs only.
 
 Although Claude Code accepts `max`, some inference gateways route Claude through a backend whose
 maximum supported effort is `xhigh`. This repository uses `xhigh` to avoid repeated invalid-request

@@ -6,6 +6,7 @@ export type DecisionChoice =
   | { kind: "select"; provider: ProviderId; note: string | null }
   | { kind: "mixed"; providers: ProviderId[]; decision: string }
   | { kind: "defer" };
+export type EvaluationSelector = ProviderId | "all";
 
 type RefableInput = {
   readonly isTTY?: boolean;
@@ -123,4 +124,11 @@ export function parseCouncilProviders(value: string): ProviderId[] {
   const providers = parseProviders(value);
   if (providers.length < 2) throw new Error("Agent Council requires at least two providers.");
   return providers;
+}
+
+export function parseEvaluator(value: string): EvaluationSelector {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "all") return "all";
+  if (PROVIDERS.includes(normalized as ProviderId)) return normalized as ProviderId;
+  throw new Error("Evaluator must be one of: codex, claude, copilot, all.");
 }

@@ -5,6 +5,14 @@ import { Command, Option } from "commander";
 import { loadConfig, withYoloOverrides } from "./config/load.js";
 import { PROVIDERS, type CouncilRun, type CouncilSession, type ProviderId } from "./core/types.js";
 import { CouncilEngine, runDoctor } from "./orchestration/council.js";
+import { BlindEvaluationEngine, type EvaluationSelector } from "./orchestration/evaluation.js";
+import { aggregatePeerScores } from "./core/evaluation-scoring.js";
+import {
+  renderBlindEvaluation,
+  renderEvaluationFailures,
+  renderEvaluationTiming,
+  renderPeerScoreSummary
+} from "./ui/evaluation.js";
 import { findProjectRoot } from "./storage/project.js";
 import { CouncilRepository } from "./storage/repository.js";
 import { CouncilError, errorMessage } from "./util/errors.js";
@@ -18,6 +26,7 @@ import {
   chooseRecovery,
   chooseSession,
   parseCouncilProviders,
+  parseEvaluator,
   parseProviders
 } from "./cli/interaction.js";
 
@@ -30,6 +39,11 @@ type RunFlags = {
   providers?: string;
   preflight?: boolean;
   live?: boolean;
+};
+
+type BlindEvaluationFlags = {
+  by: EvaluationSelector;
+  run?: string | undefined;
 };
 
 function collectYolo(value: string, previous: string[]): string[] {
@@ -178,6 +192,49 @@ async function doctorCommand(): Promise<void> {
   if (readyCount < 2) process.exitCode = 1;
 }
 
+async function blindEvaluationCommand(
+  sessionValue: string | undefined,
+  flags: BlindEvaluationFlags
+): Promise<void> {
+  const { repository } = await context();
+  const engine = new BlindEvaluationEngine({ repository });
+  const target = await engine.resolveTarget(sessionValue, flags.run);
+  const execution = await engine.execute(target, flags.by);
+  for (const result of execution.results) {
+    console.log(
+      renderBlindEvaluation(
+        result,
+        target.session.name ?? target.session.id,
+        process.stdout.columns || 120,
+        flags.by !== "all"
+      )
+    );
+  }
+  if (flags.by === "all" && execution.results.length > 0) {
+    const summaries = aggregatePeerScores(
+      execution.results,
+      target.run.effectiveConfig.enabledProviders
+    );
+    console.log(
+      renderPeerScoreSummary(
+        summaries,
+        execution.failures.length === 0 &&
+          execution.results.length === target.run.effectiveConfig.enabledProviders.length,
+        process.stdout.columns || 120
+      )
+    );
+    const timingResult = execution.results[0];
+    if (timingResult !== undefined) {
+      console.log(renderEvaluationTiming(timingResult, process.stdout.columns || 120));
+    }
+  }
+  if (execution.failures.length > 0) {
+    const terminalColumns = process.stderr.columns || process.stdout.columns || 120;
+    console.error(renderEvaluationFailures(execution.failures, terminalColumns));
+    process.exitCode = 1;
+  }
+}
+
 function addRunOptions(command: Command): Command {
   return command
     .option("-s, --session <id-or-name>", "run in an existing Council session")
@@ -208,6 +265,14 @@ program
   .command("doctor")
   .description("check provider installation, authentication, model, and effort")
   .action(doctorCommand);
+program
+  .command("blind-eval [session]")
+  .description(
+    "blindly evaluate all providers across the three stages; identities reveal only after scores lock"
+  )
+  .requiredOption("--by <evaluator>", "evaluator: codex, claude, copilot, or all", parseEvaluator)
+  .option("--run <run-id>", "evaluate a specific run in the selected session")
+  .action(blindEvaluationCommand);
 program
   .command("sessions")
   .description("list local Council sessions")

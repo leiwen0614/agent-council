@@ -144,6 +144,7 @@ export class CodexAdapter extends BaseAdapter {
         ]
       : [
           "exec",
+          ...(options.allowNonGitWorkingDirectory === true ? ["--skip-git-repo-check"] : []),
           ...modelArguments,
           ...effortArguments,
           ...permissionArguments,
